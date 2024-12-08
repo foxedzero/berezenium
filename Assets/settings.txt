@@ -1,0 +1,1 @@
+{"XResolution":1280,"YResolution":720,"ScreenMode":0,"FrameRate":-1,"TextureLevel":2,"ShadowDistance":500.0,"ShadowCascades":3,"AntiAliasing":3,"PostProcessing":true,"Music":0.0,"Effects":1.0,"LanguageID":0,"Sensitivity":1.0}

@@ -1,0 +1,10 @@
+{"Horizontal":"+D +RightArrow -A -LeftArrow",
+"Vertical":"+W +UpArrow -S -DownArrow",
+"CameraSpeedUp":"+Equals -Minus",
+"Cancel":"Escape",
+"Return":"Return",
+"Interact":"E F Mouse0",
+"CameraDirection":"Space Mouse2",
+"Rotate":"R",
+"Pause":"Space",
+"NextTimeScale":"Tab"}
