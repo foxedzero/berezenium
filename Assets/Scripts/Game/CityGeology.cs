@@ -6,7 +6,6 @@ public class CityGeology : MonoBehaviour
 
     [SerializeField] private GameObject BerezeniumFieldPrefab;
     [SerializeField] private GameObject MetalFieldPrefab;
-    [SerializeField] private GameObject WoodFieldPrefab;
     [SerializeField] private Transform Map;
     [SerializeField] private ResourceField[] Fields;
 
@@ -35,9 +34,6 @@ public class CityGeology : MonoBehaviour
                         break;
                     case "Metal":
                         Fields[i] = Instantiate(MetalFieldPrefab, Map).GetComponent<ResourceField>();
-                        break;
-                    case "Wood":
-                        Fields[i] = Instantiate(WoodFieldPrefab, Map).GetComponent<ResourceField>();
                         break;
                     default:
                         Fields = StaticTools.ReduceMassive(Fields, i);

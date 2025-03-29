@@ -3,8 +3,14 @@
 "CameraSpeedUp":"+Equals -Minus",
 "Cancel":"Escape",
 "Return":"Return",
-"Interact":"E F Mouse0",
-"CameraDirection":"Space Mouse2",
+"NextTip":"Return",
+"PrevTip":"Backspace",
+"ShowTutorial":"F2",
+"Interact":"E Mouse0 F",
+"CameraDirection":"LeftAlt Mouse1",
 "Rotate":"R",
 "Pause":"Space",
-"NextTimeScale":"Tab"}
+"NextTimeScale":"Tab",
+"ManageMode":"C V",
+"Snowrunner":"B",
+"CheatInput":"F1"}

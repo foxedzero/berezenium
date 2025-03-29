@@ -2,10 +2,15 @@ using UnityEngine;
 
 public class Door : MonoBehaviour, IInteractable
 {
+    [SerializeField] private Outline Indicator;
     [SerializeField] private AudioSource AudioSource;
     [SerializeField] private AudioClip[] AudioClips;
     [SerializeField] private Animator Animator;
     private bool Opened = false;
+
+    public bool _AbstractUse => false;
+
+    public string _Info => Opened ? "Закрыть дверь" : "Открыть дверь";
 
     public bool _Opened
     {
@@ -24,6 +29,8 @@ public class Door : MonoBehaviour, IInteractable
             AudioSource.Play();
         }
     }
+
+    public void Indicate(bool state) => Indicator.enabled = state;
 
     public void Interact()
     {

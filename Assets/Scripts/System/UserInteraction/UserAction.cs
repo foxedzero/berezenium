@@ -1,9 +1,8 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
-using Unity.VisualScripting;
 
-public abstract class UserAction : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+public abstract class UserAction : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, ICancelable
 {
     [SerializeField] protected RectTransform RectTransform;
     [SerializeField] protected Text Label;
@@ -16,18 +15,27 @@ public abstract class UserAction : MonoBehaviour, IPointerEnterHandler, IPointer
     protected virtual void OnDestroy()
     {
         CursorManager.SetNeedMouse(NeedCursor, true);
+
+        CancelQueue.Register(this, true);
     }
 
     protected virtual void Start() 
     {
         CursorManager.SetNeedMouse(NeedCursor, false);
+
+        CancelQueue.Register(this, false);
+    }
+
+    public void Cancel()
+    {
+        Destroy(gameObject);
     }
 
     protected Vector2 CalculatePosition()
     {
         Vector2 viewPort = Camera.main.ScreenToViewportPoint(Input.mousePosition);
 
-        return new Vector2(1920 * viewPort.x + 25, StaticTools.ScreenHeight * viewPort.y-25);
+        return new Vector2(1920 * viewPort.x+5, StaticTools.ScreenHeight * viewPort.y + 5);
     }
 
     protected virtual void Update()

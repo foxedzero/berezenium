@@ -41,17 +41,18 @@ public class CityDBWindow : DefaultWindow, ISingleOne
 
     public override string _Label => "База данных города";
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
+        base.OnDestroy();
         City._DataBase.OnBearChanges -= UpdateList;
         City._DataBase.OnFacilityChanges -= UpdateList;
-        City._Time.DayChanged -= UpdateList;
+        City._Time.HourPassed -= UpdateList;
     }
 
     private void Start()
     {
         City._DataBase.OnBearChanges += UpdateList;
-        City._Time.DayChanged += UpdateList;
+        City._Time.HourPassed += UpdateList;
         City._DataBase.OnFacilityChanges += UpdateList;
 
         UpdateList();
@@ -96,7 +97,7 @@ public class CityDBWindow : DefaultWindow, ISingleOne
                 UserInteract.AskVariants("", new string[] { "не важно", "Неопределёно", "Пасечник", "Конструктор", "Программист", "Биоинженер", "Первопроходец", "Творец" }, new int[] { -1, 0, 1, 2, 3, 4, 5, 6 }, SetBearKasta);
                 break;
             case 3:
-                UserInteract.AskVariants("", new string[] { "По номеру", "По имени", "По навыку", "Не имеет работы", "Не имеет жилья", "По здоровью", "По удовлетворенности", "По возрасту" }, new int[] { -1, 0, 1, 2, 3, 4, 5, 6 }, SetBearSorting);
+                UserInteract.AskVariants("", new string[] { "По номеру", "По имени", "По навыку", "Не имеет работы", "Не имеет жилья", "По здоровью", "По стрессу", "По возрасту", "По распорядку дня" }, new int[] { -1, 0, 1, 2, 3, 4, 5, 6, 7 }, SetBearSorting);
                 break;
             case 4:
                 UserInteract.AskInput("", SetBearName);
@@ -175,9 +176,9 @@ public class CityDBWindow : DefaultWindow, ISingleOne
             case 4:
                 return "По здоровью";
             case 5:
-                return "По удовлетворенности";
-            case 6:
                 return "По возрасту";
+            case 6:
+                return "По распорядку дня";
         }
 
         return "";
@@ -303,17 +304,17 @@ public class CityDBWindow : DefaultWindow, ISingleOne
     {
         if (FindBear)
         {
-            FindObjectOfType<WindowCreator>().CreateWindow<BearWindow>().SetInfo(Bears[index]);
+            WindowCreator.CreateWindow<BearWindow>().SetInfo(Bears[index]);
         }
         else
         {
-            FindObjectOfType<WindowCreator>().CreateWindow<FacilityWindow>().SetInfo(Facilities[index]);
+            WindowCreator.CreateWindow<FacilityWindow>().SetInfo(Facilities[index]);
         }
     }
 
     public override void RightMouse()
     {
-        UserInteract.AskVariants(_Label, new string[] { $"{(Pinned ? "открепить" : "закрепить")} окно", "закрыть окно", "открыть служебное окно", "изменить параметр поиска" }, new int[] { -1, 0, 1, 2 }, RightMouseActions);
+        UserInteract.AskVariants(_Label, new string[] { $"{(Pinned ? "открепить" : "закрепить")} окно", "закрыть окно", "открыть служебное окно", "изменить параметр поиска", "обновить" }, new int[] { -1, 0, 1, 2, 3 }, RightMouseActions);
     }
     public override void RightMouseActions(int index)
     {
@@ -330,7 +331,7 @@ public class CityDBWindow : DefaultWindow, ISingleOne
                 {
                     if (BearWindow == null)
                     {
-                        BearWindow = FindObjectOfType<WindowCreator>().CreateWindow<BearWindow>();
+                        BearWindow = WindowCreator  .CreateWindow<BearWindow>();
 
                         if (Bears.Length > 0)
                         {
@@ -342,7 +343,7 @@ public class CityDBWindow : DefaultWindow, ISingleOne
                 {
                     if (FacilityWindow == null)
                     {
-                        FacilityWindow = FindObjectOfType<WindowCreator>().CreateWindow<FacilityWindow>();
+                        FacilityWindow = WindowCreator.CreateWindow<FacilityWindow>();
 
                         if (Facilities.Length > 0)
                         {
@@ -360,6 +361,9 @@ public class CityDBWindow : DefaultWindow, ISingleOne
                 {
                     UserInteract.AskVariants("", new string[] {$"Объект поиска <color=green>Здание</color>", $"Направление <color=green>{(FacilityType == -1 ? "любое" : (Constructor.ConstructCategory) FacilityType)}</color>", $"Сортировка <color=green>{FacilitySortName(SortFacilityBy)}</color>", $"Название здания <color=green>{FacilityName}</color>", $"Номер здания <color=green>{FacilityIndex}</color>" }, new int[] {0, 1, 2, 3, 4}, EditFacilityParameter);
                 }
+                break;
+            case 3:
+                UpdateList();
                 break;
         }
     }
@@ -435,17 +439,8 @@ public class CityDBWindow : DefaultWindow, ISingleOne
                     }
                 }
 
-                int[] bearSatisfactions = new int[0];
                 int[] bearNamePriorities = new int[0];
-                if (SortBearBy == 5)
-                {
-                    bearSatisfactions = new int[bears.Length];
-                    for (int i = 0; i < bears.Length; i++)
-                    {
-                        bearSatisfactions[i] = bears[i]._Satisfaction;
-                    }
-                }
-                else if(SortBearBy == 0 && BearName.Length > 0)
+                if(SortBearBy == 0 && BearName.Length > 0)
                 {
                     bearNamePriorities = new int[bears.Length];
                     for (int i = 0; i < bears.Length; i++)
@@ -479,7 +474,7 @@ public class CityDBWindow : DefaultWindow, ISingleOne
                                 }
                                 break;
                             case 1:
-                                if (bears[ii]._Skill > bears[high]._Skill)
+                                if (bears[ii]._Work > bears[high]._Work)
                                 {
                                     high = ii;
                                 }
@@ -503,7 +498,7 @@ public class CityDBWindow : DefaultWindow, ISingleOne
                                 }
                                 break;
                             case 5:
-                                if (bearSatisfactions[ii] < bearSatisfactions[high])
+                                if (bears[ii]._Stress < bears[high]._Stress)
                                 {
                                     high = ii;
                                 }
@@ -514,20 +509,20 @@ public class CityDBWindow : DefaultWindow, ISingleOne
                                     high = ii;
                                 }
                                 break;
+                            case 7:
+                                if (bears[ii]._Schedule < bears[high]._Schedule)
+                                {
+                                    high = ii;
+                                }
+                                break;
                         }
                     }
 
                     Bear buffer = bears[i];
                     bears[i] = bears[high];
                     bears[high] = buffer;
-
-                    if (SortBearBy == 5)
-                    {
-                        int sbuffer = bearSatisfactions[i];
-                        bearSatisfactions[i] = bearSatisfactions[high];
-                        bearSatisfactions[high] = sbuffer;
-                    }
-                    else if (SortBearBy == 0 && BearName.Length > 0)
+                    
+                    if (SortBearBy == 0 && BearName.Length > 0)
                     {
                         int sbuffer = bearNamePriorities[i];
                         bearNamePriorities[i] = bearNamePriorities[high];
@@ -548,7 +543,7 @@ public class CityDBWindow : DefaultWindow, ISingleOne
                         info += $"{bears[i]._Name}  #{StaticTools.IndexOf(City._DataBase._Bears, bears[i])}\n";
                         break;
                     case 1:
-                        info += $"{bears[i]._Name}  {bears[i]._Skill}\n";
+                        info += $"{bears[i]._Name}  {(int)(bears[i]._Work * 100f)}%\n";
                         break;
                     case 2:
                         info += $"{bears[i]._Name}  {(bears[i]._Facility != null ? bears[i]._Facility._ConstructInfo.Name + $"#{StaticTools.IndexOf(City._DataBase._Facilities, bears[i]._Facility)}" : "нет")}\n";
@@ -560,10 +555,13 @@ public class CityDBWindow : DefaultWindow, ISingleOne
                         info += $"{bears[i]._Name}  {bears[i]._Health}\n";
                         break;
                     case 5:
-                        info += $"{bears[i]._Name}  {bears[i]._Satisfaction}\n";
+                        info += $"{bears[i]._Name}  {bears[i]._Stress}\n";
                         break;
                     case 6:
                         info += $"{bears[i]._Name}  {bears[i]._Age}\n";
+                        break;
+                    case 7:
+                        info += $"{bears[i]._Name}  #{bears[i]._Schedule}\n";
                         break;
                     default:
                         info += $"{bears[i]._Name}\n";
@@ -649,7 +647,7 @@ public class CityDBWindow : DefaultWindow, ISingleOne
                                 }
                                 break;
                             case 2:
-                                if (((facilities[ii] is EnergyProcuder) ? -(facilities[ii] as EnergyProcuder)._Produce : facilities[ii]._EnergyConsume) < ((facilities[ii] is EnergyProcuder) ? -(facilities[ii] as EnergyProcuder)._Produce : facilities[ii]._EnergyConsume))
+                                if (((facilities[ii] is EnergyProcuder) ? -(facilities[ii] as EnergyProcuder)._Producing : facilities[ii]._EnergyConsume) < ((facilities[ii] is EnergyProcuder) ? -(facilities[ii] as EnergyProcuder)._Producing : facilities[ii]._EnergyConsume))
                                 {
                                     high = ii;
                                 }
@@ -681,7 +679,7 @@ public class CityDBWindow : DefaultWindow, ISingleOne
                         info += $"{facilities[i]._ConstructInfo.Name} {facilities[i]._AssignedBears.Length}/{facilities[i]._MaxBearCount}\n";
                         break;
                     case 2:
-                        info += $"{facilities[i]._ConstructInfo.Name} {(facilities[i] is EnergyProcuder ? $"+{(facilities[i] as EnergyProcuder)._Produce}" : $"-{facilities[i]._EnergyConsume}")}\n";
+                        info += $"{facilities[i]._ConstructInfo.Name} {(facilities[i] is EnergyProcuder ? $"+{(facilities[i] as EnergyProcuder)._Producing}" : $"-{facilities[i]._EnergyConsume}")}\n";
                         break;
                 }
             }

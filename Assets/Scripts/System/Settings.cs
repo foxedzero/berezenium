@@ -12,6 +12,7 @@ public class Settings : MonoBehaviour
     [SerializeField] private VolumeProfile VolumeProfile;
     [SerializeField] private AudioMixer Mixer;
     [SerializeField] private SettingsData Data;
+    [SerializeField] private Camera[] Cameras;
 
     public SettingsData _Data => Data;
 
@@ -29,24 +30,37 @@ public class Settings : MonoBehaviour
         {
             Data = new SettingsData();
 
+            Resolution resolution = Screen.resolutions[Screen.resolutions.Length - 1];
+            Data.XResolution = resolution.width;
+            Data.YResolution = resolution.height;
+            Data.ScreenMode = 2;
+
             //Data.LanguageID = LocalizationSettings.AvailableLocales.Locales.IndexOf(LocalizationSettings.SelectedLocale);
         }
 
-        Apply(Data);
+        Apply();
     }
 
-    public void Apply(SettingsData data)
+    public void Apply()
     {
-        Data = data; 
-
         Screen.SetResolution(Data.XResolution, Data.YResolution, ScreenMode(Data.ScreenMode));
 
         StartCoroutine(SetMixer());
 
+        Application.targetFrameRate = Data.FrameRate;
+   
         foreach (VolumeComponent component in VolumeProfile.components)
         {
-            component.active = Data.PostProcessing;
+            if(component is LiftGammaGain)
+            {
+                (component as LiftGammaGain).gain.value = new Vector4(1, 1, 1, 1) * Mathf.Max(-0.8f, Data.Brightness);
+            }
+            else
+            {
+                component.active = Data.PostProcessing;
+            }
         }
+        VolumeProfile.isDirty = true;
 
         Pipeline.shadowDistance = Data.ShadowDistance;
         Pipeline.shadowCascadeCount = Mathf.Clamp(Data.ShadowCascades + 1, 1, 4);
@@ -67,9 +81,34 @@ public class Settings : MonoBehaviour
         }
         QualitySettings.globalTextureMipmapLimit = 2 - Data.TextureLevel;
         Pipeline.supportsDynamicBatching = true;
-        Pipeline.msaaSampleCount = Data.AntiAliasing > 0 ? Mathf.RoundToInt(Mathf.Pow(2, Data.AntiAliasing)) : 0;
 
-        //LocalizationSettings.SelectedLocale = LocalizationSettings.AvailableLocales.Locales[Data.LanguageID];
+        switch (Data.AntiAliasing)
+        {
+            case 0:
+                foreach(Camera camera in Cameras)
+                {
+                    camera.GetUniversalAdditionalCameraData().antialiasing = AntialiasingMode.None;
+                }
+                break;
+            case 1:
+                foreach (Camera camera in Cameras)
+                {
+                    camera.GetUniversalAdditionalCameraData().antialiasing = AntialiasingMode.FastApproximateAntialiasing;
+                }
+                break;
+            case 2:
+                foreach (Camera camera in Cameras)
+                {
+                    camera.GetUniversalAdditionalCameraData().antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+                }
+                break;
+            case 3:
+                foreach (Camera camera in Cameras)
+                {
+                    camera.GetUniversalAdditionalCameraData().antialiasing = AntialiasingMode.TemporalAntiAliasing;
+                }
+                break;
+        }
 
         if (OnChanges != null)
         {
@@ -114,6 +153,14 @@ public class Settings : MonoBehaviour
         {
             Mixer.SetFloat("Effects", 30 * Data.Effects - 30);
         }
+        if (Data.Voice == 0)
+        {
+            Mixer.SetFloat("Voice", -80);
+        }
+        else
+        {
+            Mixer.SetFloat("Voice", 30 * Data.Voice - 30);
+        }
     }
 
     [System.Serializable]
@@ -126,20 +173,23 @@ public class Settings : MonoBehaviour
         public int FrameRate = -1;
 
         public int TextureLevel = 1; // 1/4 1/2 1
+        public int SnowResolution = 1; //0- 1024, 1 -2048, 2 - 4096
+
+        public float Brightness = 0;
+
+        public int MaxSnowCount = 5000;// [100, 200000]
 
         public float ShadowDistance = 500;
         public int ShadowCascades = 1; //0 - 1, 1 - 2, 2 - 3, 3 - 4
         
-        public int AntiAliasing = 1; //0x 2x 4x 8x
+        public int AntiAliasing = 1; //FXAA
 
         public bool PostProcessing = true;
 
         //Звук
         public float Music = 0.5f;
         public float Effects = 0.5f;
-
-        //Язык
-        public int LanguageID;
+        public float Voice = 0.5f;
 
         //Гейплей
         public float Sensitivity = 1;
@@ -152,8 +202,13 @@ public class Settings : MonoBehaviour
             data.YResolution = YResolution;
             data.ScreenMode = ScreenMode;
             data.FrameRate = FrameRate;
+            data.SnowResolution = SnowResolution;
+            
+            data.MaxSnowCount = MaxSnowCount;
 
             data.TextureLevel = TextureLevel;
+
+            data.Brightness = Brightness;
 
             data .ShadowDistance = ShadowDistance;
             data .ShadowCascades = ShadowCascades;
@@ -166,8 +221,6 @@ public class Settings : MonoBehaviour
 
             data.Music = Music;
             data.Effects = Effects;
-
-            data.LanguageID = LanguageID;
 
             return data;
         }

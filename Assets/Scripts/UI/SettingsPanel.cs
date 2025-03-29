@@ -3,283 +3,316 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Audio;
 using System.IO;
+using Unity.VisualScripting;
+using static Settings;
 
 public class SettingsPanel : MonoBehaviour
 {
     [SerializeField] private AudioMixer Mixer;
     [SerializeField] private Settings Settings;
 
-    [SerializeField] private Text Language;
-
     [SerializeField] private Text Resolution;
     [SerializeField] private Text ScreenMode;
     [SerializeField] private Text PostProcess;
     [SerializeField] private Text TextureLevel;
+    [SerializeField] private Text SnowResolution;
     [SerializeField] private Text ShadowCascades;
     [SerializeField] private Text SMAA;
 
+    [SerializeField] private Text MaxSnowCountInfo;
+    [SerializeField] private Slider MaxSnowCount;
+
+    [SerializeField] private Slider Brightness;
     [SerializeField] private Slider Sensitivity;
     [SerializeField] private Slider MusicVolume;
     [SerializeField] private Slider EffectsVolume;
+    [SerializeField] private Slider VoiceVolume;
 
-    private Settings.SettingsData SettingsData;
-
-    public void ApplySettings() => Settings.Apply(SettingsData.Clone());
-
-    private void Start()
-    {
-        Settings.OnChanges += UpdateInfo;
-       // LocalizationSettings.SelectedLocaleChanged += UpdateInfo;
-    }
-    private void OnDestroy()
-    {
-        Settings.OnChanges -= UpdateInfo;
-       // LocalizationSettings.SelectedLocaleChanged -= UpdateInfo;
-    }
+    public void ApplySettings() => Settings.Apply();
 
     private void OnEnable()
     {
         UpdateInfo();
     }
 
-    //public void UpdateInfo(Locale locale) => UpdateInfo();
+    private void OnDisable()
+    {
+        ApplySettings();
+    }
+
+    public void ScaleIt(Text text)
+    {
+        text.rectTransform.sizeDelta = new Vector2(text.preferredWidth + 100, 50);
+    }
 
     public void UpdateInfo()
     {
-        SettingsData = Settings._Data.Clone();
+        Resolution.text = $"{Settings._Data.XResolution}x{Settings._Data.YResolution}";
+        ScaleIt(Resolution);
 
-        switch (SettingsData.LanguageID)
+        switch (Settings._Data.ScreenMode)
         {
             case 0:
-                Language.text = $"Русский";
+                ScreenMode.text = "ОКНО";
                 break;
             case 1:
-                Language.text = $"English";
+                ScreenMode.text = "ПОЛНЫЙ ЭКРАН";
                 break;
             case 2:
-                Language.text = $"中文";
-                break;
-            case 3:
-                Language.text = $"Deutsch";
-                break;
-            case 4:
-                Language.text = $"हिन्दी";
-                break;
-            case 5:
-                Language.text = $"日本語";
+                ScreenMode.text = "РАЗВЁРНУТОЕ ОКНО";
                 break;
         }
+        ScaleIt(ScreenMode);
 
-        Resolution.text = $"{SettingsData.XResolution}x{SettingsData.YResolution}";
+        PostProcess.text = Settings._Data.PostProcessing ? "ВКЛЮЧЕНА" : "ОТКЛЮЧЕНА";
+        ScaleIt(PostProcess);
 
-        switch (SettingsData.ScreenMode)
+        switch (Settings._Data.TextureLevel)
         {
             case 0:
-                ScreenMode.text = "Окно";
+                TextureLevel.text = "НИЗКОЕ";
                 break;
             case 1:
-                ScreenMode.text = "Полный экран";
+                TextureLevel.text = "СРЕДНЕЕ";
                 break;
             case 2:
-                ScreenMode.text = "Развёрнутое окно";
+                TextureLevel.text = "ВЫСОКОЕ";
                 break;
         }
+        ScaleIt(TextureLevel);
 
-        PostProcess.text = SettingsData.PostProcessing ? "Включена" : "Отключена";
-
-        switch (SettingsData.TextureLevel)
+        switch (Settings._Data.SnowResolution)
         {
             case 0:
-                TextureLevel.text = "Низкое";
+                SnowResolution.text = "НИЗКОЕ";
                 break;
             case 1:
-                TextureLevel.text = "Среднее";
+                SnowResolution.text = "СРЕДНЕЕ";
                 break;
             case 2:
-                TextureLevel.text = "Высокое";
+                SnowResolution.text = "ВЫСОКОЕ";
                 break;
         }
+        ScaleIt(SnowResolution);
 
-        switch (SettingsData.AntiAliasing)
+        switch (Settings._Data.AntiAliasing)
         {
             case 0:
                 SMAA.text = "Нет";
                 break;
             case 1:
-                SMAA.text = "2x";
+                SMAA.text = "FXAA";
                 break;
             case 2:
-                SMAA.text = "4x";
+                SMAA.text = "SMAA";
                 break;
             case 3:
-                SMAA.text = "8x";
+                SMAA.text = "TAA";
                 break;
         }
+        ScaleIt(SMAA);
 
-        switch (SettingsData.ShadowCascades)
+        switch (Settings._Data.ShadowCascades)
         {
             case 0:
-                ShadowCascades.text = "Низкое";
+                ShadowCascades.text = "НИЗКОЕ";
                 break;
             case 1:
-                ShadowCascades.text = "Среднее";
+                ShadowCascades.text = "СРЕДНЕЕ";
                 break;
             case 2:
-                ShadowCascades.text = "Высокое";
+                ShadowCascades.text = "ВЫСОКОЕ";
                 break;
             case 3:
-                ShadowCascades.text = "Отличное";
+                ShadowCascades.text = "ОТЛИЧНОЕ";
                 break;
         }
-        
-        Sensitivity.SetValueWithoutNotify(SettingsData.Sensitivity / 8f);
+        ScaleIt(ShadowCascades);
 
-        MusicVolume.SetValueWithoutNotify(SettingsData.Music);
+        MaxSnowCount.SetValueWithoutNotify(Settings._Data.MaxSnowCount / 200000f);
+        MaxSnowCountInfo.text = $"{Settings._Data.MaxSnowCount}";
 
-        EffectsVolume.SetValueWithoutNotify(SettingsData.Effects);
-    }
+        Brightness.SetValueWithoutNotify((Settings._Data.Brightness + 1) / 2);
 
-    public void SetLanguage()
-    {
-       // UserInteract.AskVariants("", new string[] { "Русский", "English", "中文",  "Deutsch",  "हिन्दी", "日本語", }, new int[] { 0, 1, 2, 3, 4, 5 }, SetLanguage);
-        UserInteract.AskVariants("", new string[] { "Русский" }, new int[] { 0 }, SetLanguage);
-    }
-    public void SetLanguage(int index)
-    {
-        SettingsData.LanguageID = index;
-        ApplySettings();
+        Sensitivity.SetValueWithoutNotify(Settings._Data.Sensitivity / 8f);
+
+        VoiceVolume.SetValueWithoutNotify(Settings._Data.Voice);
+
+        MusicVolume.SetValueWithoutNotify(Settings._Data.Music);
+
+        EffectsVolume.SetValueWithoutNotify(Settings._Data.Effects);
     }
 
     public void SetResolution()
     {
-        Vector2[] resolutions = GetResolutions();
+        Vector2[] resolutions =GetResolutions();
 
         string[] variants = new string[resolutions.Length];
-        int[] indexes = new int[resolutions.Length];
-        for (int i = 0; i < resolutions.Length; i++)
+        int[] indexes = new int[resolutions.Length];    
+        for(int i = 0; i < variants.Length; i++)
         {
-            variants[i] = $"{resolutions[resolutions.Length - 1 - i].x}x{resolutions[resolutions.Length - 1 - i].y}";
-            indexes[i] = resolutions.Length - 1 - i;
+            variants[i] = $"{resolutions[i].x}x{resolutions[i].y}";
+            indexes[i] = i;
         }
 
-        UserInteract.AskVariants("", variants, indexes, SetResolution);
+        UserInteract.AskVariants("Разрешение экрана", variants, indexes, SetResolution);
     }
     public void SetResolution(int index)
     {
-        Vector2 resolution = GetResolutions()[index];
-        SettingsData.XResolution = (int)resolution.x;
-        SettingsData.YResolution = (int)resolution.y;
+        Vector2[] resolutions = GetResolutions();
 
-        Resolution.text = $"{SettingsData.XResolution}x{SettingsData.YResolution}";
+        Settings._Data.XResolution = (int)resolutions[index].x;
+        Settings._Data.YResolution = (int)resolutions[index].y;
+
+        Resolution.text = $"{Settings._Data.XResolution}x{Settings._Data.YResolution}";
+        ScaleIt(Resolution);
+
+        Settings.Apply();
     }
 
     public void SetScreenMode()
     {
-        UserInteract.AskVariants("", new string[] { "Окно", "Полный экран", "Развёрнутое окно" }, new int[] { 0, 1, 2 }, SetScreenMode);
+        UserInteract.AskVariants("Режим экрана", new string[] {"Окно","Полный экран","Развёрнутое окно"}, new int[] {0, 1, 2}, SetScreenMode);
     }
     public void SetScreenMode(int index)
     {
-        SettingsData.ScreenMode = index;
+        Settings._Data.ScreenMode = index;
 
-        switch (SettingsData.ScreenMode)
+        switch (Settings._Data.ScreenMode)
         {
             case 0:
-                ScreenMode.text = "Окно";
+                ScreenMode.text = "ОКНО";
                 break;
             case 1:
-                ScreenMode.text = "Полный экран";
+                ScreenMode.text = "ПОЛНЫЙ ЭКРАН";
                 break;
             case 2:
-                ScreenMode.text = "Развёрнутое окно";
+                ScreenMode.text = "РАЗВЁРНУТОЕ ОКНО";
                 break;
         }
+        ScaleIt(ScreenMode);
+
+        Settings.Apply();
     }
 
     public void SetPostProcess()
     {
-        UserInteract.AskVariants("", new string[] {"Включить", "Отключить"}, new int[] { 0, 1}, SetPostProcess);
+        UserInteract.AskVariants("Пост обработка", new string[] { "Включена", "Отключена" }, new int[] { 1, 0 }, SetPostProcess);
     }
     public void SetPostProcess(int index)
     {
-        SettingsData.PostProcessing = index == 0;
+        Settings._Data.PostProcessing = index == 1;
 
-        PostProcess.text = SettingsData.PostProcessing ? "Включена" : "Отключена";
-    }
-    public void SetPostProcess(bool state)
-    {
-        SettingsData.PostProcessing = state;
+        PostProcess.text = Settings._Data.PostProcessing ? "ВКЛЮЧЕНА" : "ОТКЛЮЧЕНА";
+        ScaleIt(PostProcess);
+
+        Settings.Apply();
     }
 
     public void SetTextureLevel()
     {
-        UserInteract.AskVariants("", new string[] { "Низкое", "Среднее", "Высокое" }, new int[] { 0, 1, 2 }, SetTextureLevel);
+        UserInteract.AskVariants("Качество текстур", new string[] { "Низкое", "Среднее", "Высокое" }, new int[] { 0, 1, 2 }, SetTextureLevel);
     }
     public void SetTextureLevel(int index)
     {
-        SettingsData.TextureLevel = index;
+        Settings._Data.TextureLevel = index;
 
-        switch (SettingsData.TextureLevel)
+        switch (Settings._Data.TextureLevel)
         {
             case 0:
-                TextureLevel.text = "Низкое";
+                TextureLevel.text = "НИЗКОЕ";
                 break;
             case 1:
-                TextureLevel.text = "Среднее";
+                TextureLevel.text = "СРЕДНЕЕ";
                 break;
             case 2:
-                TextureLevel.text = "Высокое";
+                TextureLevel.text = "ВЫСОКОЕ";
                 break;
         }
+        ScaleIt(TextureLevel);
+
+        Settings.Apply();
     }
 
-    public void SetMSAA()
+    public void SetSnowResolution()
     {
-        UserInteract.AskVariants("", new string[] { "Нет", "2x", "4x", "8x" }, new int[] { 0, 1, 2, 3 }, SetMSAA);
+        UserInteract.AskVariants("Тесселяция снега", new string[] { "Низкое", "Среднее", "Высокое" }, new int[] { 0, 1, 2 }, SetSnowResolution);
     }
-    public void SetMSAA(int index)
+    public void SetSnowResolution(int index)
     {
-        SettingsData.AntiAliasing = index;
+        Settings._Data.SnowResolution = index;
 
-        switch (SettingsData.AntiAliasing)
+        switch (Settings._Data.SnowResolution)
+        {
+            case 0:
+                SnowResolution.text = "НИЗКОЕ";
+                break;
+            case 1:
+                SnowResolution.text = "СРЕДНЕЕ";
+                break;
+            case 2:
+                SnowResolution.text = "ВЫСОКОЕ";
+                break;
+        }
+        ScaleIt(SnowResolution);
+
+        Settings.Apply();
+    }
+
+    public void SetSMAA()
+    {
+        UserInteract.AskVariants("Сглаживание", new string[] { "Нет", "FXAA", "SMAA", "TAA" }, new int[] { 0, 1, 2, 3 }, SetSMAA);
+    }
+    public void SetSMAA(int index)
+    {
+        Settings._Data.AntiAliasing = index;
+
+        switch (Settings._Data.AntiAliasing)
         {
             case 0:
                 SMAA.text = "Нет";
                 break;
             case 1:
-                SMAA.text = "2x";
+                SMAA.text = "FXAA";
                 break;
             case 2:
-                SMAA.text = "4x";
+                SMAA.text = "SMAA";
                 break;
             case 3:
-                SMAA.text = "8x";
+                SMAA.text = "TAA";
                 break;
         }
+        ScaleIt(SMAA);
+
+        Settings.Apply();
     }
 
-    public void SetShadowCascades()
+    public void SetShadowQualit()
     {
-        UserInteract.AskVariants("", new string[] { "Низкое", "Среднее", "Высокое", "Отличное" }, new int[] { 0, 1, 2, 3 }, SetShadowCascades);
+        UserInteract.AskVariants("Качество теней", new string[] { "Низкое", "Среднее", "Высокое", "Отличное" }, new int[] { 0, 1, 2, 3 }, SetShadowQualit);
     }
-    public void SetShadowCascades(int index)
+    public void SetShadowQualit(int index)
     {
-        SettingsData.ShadowCascades = index;
+        Settings._Data.ShadowCascades = index;
 
-        switch (SettingsData.ShadowCascades)
+        switch (Settings._Data.ShadowCascades)
         {
             case 0:
-                ShadowCascades.text = "Низкое";
+                ShadowCascades.text = "НИЗКОЕ";
                 break;
             case 1:
-                ShadowCascades.text = "Среднее";
+                ShadowCascades.text = "СРЕДНЕЕ";
                 break;
             case 2:
-                ShadowCascades.text = "Высокое";
+                ShadowCascades.text = "ВЫСОКОЕ";
                 break;
             case 3:
-                ShadowCascades.text = "Отличное";
+                ShadowCascades.text = "ОТЛИЧНОЕ";
                 break;
         }
+        ScaleIt(ShadowCascades);
+
+        Settings.Apply();
     }
 
     public void EditKeyMap()
@@ -295,34 +328,65 @@ public class SettingsPanel : MonoBehaviour
 
     public void SetSensitivity(float value)
     {
-        SettingsData.Sensitivity = value * 8;
+        Settings._Data.Sensitivity = value * 8;
+
+        Settings.Apply();
+    }
+
+    public void SetBrightness(float value)
+    {
+        Settings._Data.Brightness = value * 2 - 1;
+
+        Settings.Apply();
+    }
+
+    public void SetMaxSnow(float value)
+    {
+        Settings._Data.MaxSnowCount = (int)Mathf.Max(100, value * 200000);
+        MaxSnowCountInfo.text = $"{Settings._Data.MaxSnowCount}";
+
+        Settings.Apply();
     }
 
     public void SetMusic(float value)
     {
-        SettingsData.Music = value;
+        Settings._Data.Music = value;
 
-        if (SettingsData.Music == 0)
+        if (Settings._Data.Music == 0)
         {
             Mixer.SetFloat("Music", -80);
         }
         else
         {
-            Mixer.SetFloat("Music", 30 * SettingsData.Music - 30);
+            Mixer.SetFloat("Music", 30 * Settings._Data.Music - 30);
+        }
+    }
+
+    public void SetVoice(float value)
+    {
+        Settings._Data.Voice = value;
+
+        if (Settings._Data.Voice == 0)
+        {
+            Mixer.SetFloat("Voice", -80);
+        }
+        else
+        {
+            Mixer.SetFloat("Voice", 30 * Settings._Data.Voice - 30);
         }
     }
 
     public void SetEffects(float value)
     {
-        SettingsData.Effects = value;
+        Settings._Data.Effects = value;
 
-        if (SettingsData.Effects == 0)
+        if (Settings._Data.Effects == 0)
         {
             Mixer.SetFloat("Effects", -80);
         }
         else
         {
-            Mixer.SetFloat("Effects", 30 * SettingsData.Effects - 30);
+            Mixer.SetFloat("Effects", 30 * Settings._Data.Effects - 30);
         }
     }
 

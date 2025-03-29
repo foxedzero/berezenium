@@ -1,4 +1,5 @@
 using UnityEngine;
+using static UserBear;
 
 public class UserInteract : MonoBehaviour
 {
@@ -19,7 +20,7 @@ public class UserInteract : MonoBehaviour
         Instance = this;
     }
 
-    static public UserFacility AskFacility(string label, UserFacility.FacilityReturn ask)
+    static public UserFacility AskFacility(string label, UserFacility.FacilityReturn ask, UserFacility.Sorting sorting = UserFacility.Sorting.Index, string sortInfo = "", int display = 0, int[] exlude = null)
     {
         if (Instance.LastInteract != null)
         {
@@ -28,12 +29,12 @@ public class UserInteract : MonoBehaviour
 
         UserFacility facility = Instantiate(Instance.UserFacilityPrefab, Instance.Canvas).GetComponent<UserFacility>();
 
-        facility.SetInfo(label, ask);
+        facility.SetInfo(label, ask, sorting, sortInfo, display, exlude);
 
         return facility;
     }
 
-    static public UserBear AskBear(string label, UserBear.BearReturn ask)
+    static public UserBear AskBear(string label, UserBear.BearReturn ask, UserBear.Sorting sorting = UserBear.Sorting.Index, string sortInfo = "", int display = 0, int[] exlude = null)
     {
         if (Instance.LastInteract != null)
         {
@@ -42,7 +43,7 @@ public class UserInteract : MonoBehaviour
 
         UserBear bear = Instantiate(Instance.UserBearPrefab, Instance.Canvas).GetComponent<UserBear>();
 
-        bear.SetInfo(label, ask);
+        bear.SetInfo(label, ask, sorting, sortInfo, display, exlude);
 
         return bear;
     }

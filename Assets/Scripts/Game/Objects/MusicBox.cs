@@ -2,7 +2,11 @@ using UnityEngine;
 
 public class MusicBox : MonoBehaviour, IInteractable
 {
+    [SerializeField] private Outline Indicator;
     private Musician.MusicOrder MusicOrder = new Musician.MusicOrder();
+
+    public string _Info => "Поставить музыку";
+    public bool _AbstractUse => true;
 
     private void OnDisable()
     {
@@ -10,6 +14,8 @@ public class MusicBox : MonoBehaviour, IInteractable
 
         musician.SetMusic(MusicOrder, true);
     }
+
+    public void Indicate(bool state) => Indicator.enabled = state;
 
     public void Interact()
     {

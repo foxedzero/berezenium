@@ -19,6 +19,11 @@ public class TipManager : MonoBehaviour
 
     public static void ShowTip(Tipper tipper, bool remove)
     {
+        if(Instance == null)
+        {
+            return;
+        }
+
         if (remove)
         {
             if(Instance.Tipper == tipper)
@@ -70,9 +75,9 @@ public class TipManager : MonoBehaviour
         {
             Text.text = Tipper._Info;
 
-            Panel.sizeDelta = new Vector2(Mathf.Clamp(Text.preferredWidth, 25, 450), 50);
+            Panel.sizeDelta = new Vector2(Mathf.Clamp(Text.preferredWidth + 30, 25, 600), 80);
 
-            Panel.sizeDelta = new Vector2(Panel.sizeDelta.x, Text.preferredHeight);
+            Panel.sizeDelta = new Vector2(Panel.sizeDelta.x, Mathf.Min(Text.preferredHeight + 30, StaticTools.ScreenHeight));
         }
     }
 
@@ -85,22 +90,26 @@ public class TipManager : MonoBehaviour
 
     private IEnumerator Resize()
     {
-        Panel.sizeDelta = new Vector2(Mathf.Clamp(Text.preferredWidth, 25, 600), 50);
-
-        Panel.sizeDelta = new Vector2(Panel.sizeDelta.x, Text.preferredHeight);
+        Panel.sizeDelta = new Vector2(Mathf.Clamp(Text.preferredWidth + 30, 25, 600), 80);
+        Panel.sizeDelta = new Vector2(Panel.sizeDelta.x, Mathf.Min(Text.preferredHeight + 30, StaticTools.ScreenHeight));
 
         yield return new WaitForSecondsRealtime(0.5f);
 
-        Vector2 position = CalculatePosition() + new Vector2(Panel.sizeDelta.x / 2 + 25, -Panel.sizeDelta.y / 2 - 25);
+        Vector2 position = CalculatePosition() + new Vector2(Panel.sizeDelta.x / 2 + 25, -Panel.sizeDelta.y / 2 - 5);
 
-        if (position.x + Panel.sizeDelta.x / 2 + 12.5f > 1920)
+        if (position.x + Panel.sizeDelta.x / 2 + 5 > 1920)
         {
-            position.x -= Panel.sizeDelta.x + 25;
+            position.x -= Panel.sizeDelta.x + 50;
         }
 
-        if (position.y - Panel.sizeDelta.y / 2 - 12.5f < 0)
+        if (position.y - Panel.sizeDelta.y / 2 - 5 < 0)
         {
-            position.y += Panel.sizeDelta.y + 25;
+            position.y += Panel.sizeDelta.y + 5;
+
+            if(position.y + Panel.sizeDelta.y / 2 > StaticTools.ScreenHeight)
+            {
+                position.y = Panel.sizeDelta.y/2;
+            }
         }
 
         Panel.anchoredPosition = position;

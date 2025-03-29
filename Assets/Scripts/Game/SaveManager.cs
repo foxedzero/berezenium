@@ -1,18 +1,37 @@
 using UnityEngine;
 using System.IO;
-using System.Collections.Generic;
 
 public class SaveManager : MonoBehaviour
 {
-    private SaveData SaveData = null;
+    private static SaveManager Instance;
 
-    public string _PlayerName => SaveData.PlayerName;
+    [SerializeField] private SaveData SaveData = null;
+
+    public static SaveManager _Instance => Instance;
+    public SaveData _SaveData => SaveData;
+
+    public static string _Seed => Instance.SaveData.Seed;
+
+    private void Awake()
+    {
+        if(Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+    }
 
     private void OnApplicationQuit()
     {
-        if (City._DataBase != null)
+        if(City._Instance != null)
         {
-            Save();
+            if (City._DataBase != null)
+            {
+                Save();
+            }
         }
     }
 
@@ -21,44 +40,9 @@ public class SaveManager : MonoBehaviour
         SaveData = data;
     }
 
-    public void Initialize()
+    public void Save()
     {
-        string path = Path.Combine(Application.persistentDataPath, "LocalSave.json");
-        if (File.Exists(path))
-        {
-            SaveData = JsonUtility.FromJson<SaveData>(File.ReadAllText(path));
-        }
-
-        if(SaveData != null)
-        {
-            City._CityGeology._SaveInfo = SaveData.Fields;
-
-            City._DataBase.Load(SaveData);
-
-            City._Time._Time = SaveData.GameTime;
-            City._Weather._SaveInfo = SaveData.Weather;
-            City._CityMessenger._SaveInfo = SaveData.CityMessages;
-            City._Storage._SaveInfo = SaveData.CityStorage;
-            City._Foodstream._SaveInfo = SaveData.CityFoodstream;
-            City._Energosystem._SaveInfo = SaveData.CityEnergosystem;
-            City._Factors._SaveInfo = SaveData.CityFactors;
-            City._Research._SaveInfo = SaveData.Research;
-
-            SaveData.Bears = null;
-            SaveData.Facilities = null;
-            SaveData.CityFactors = null;
-        }
-        else
-        {
-            SaveData = new SaveData();
-        }
-
-        City._Time.DayChanged += Save;
-    }
-
-    public void Save(NtoServerInterface.StringInfo callback)
-    {
-        SaveData.GameTime = Mathf.Round(City._Time._Time * 100000000) / 100000000f;
+        SaveData.GameTime = City._Time._WorldTime;
 
         SaveData.Bears = new string[City._DataBase._Bears.Length];
         for (int i = 0; i < SaveData.Bears.Length; i++)
@@ -72,161 +56,55 @@ public class SaveManager : MonoBehaviour
             SaveData.Facilities[i] = City._DataBase._Facilities[i]._SaveInfo;
         }
 
+        SaveData.Schedules = new string[City._CitySchedule._Schedules.Length];
+        for (int i = 0; i < SaveData.Schedules.Length; i++)
+        {
+            SaveData.Schedules[i] = City._CitySchedule._Schedules[i]._SaveInfo;
+        }
+
+        SaveData.PlayerPosition = City._PlayerPlacer._SaveInfo;
         SaveData.CityStorage = City._Storage._SaveInfo;
         SaveData.CityFoodstream = City._Foodstream._SaveInfo;
         SaveData.CityEnergosystem = City._Energosystem._SaveInfo;
-        SaveData.CityFactors = City._Factors._SaveInfo;
         SaveData.Research = City._Research._SaveInfo;
-        SaveData.CityMessages = City._CityMessenger._SaveInfo;
         SaveData.Fields = City._CityGeology._SaveInfo;
         SaveData.Weather = City._Weather._SaveInfo;
+        SaveData.CitySally = City._CitySally._SaveInfo;
+        SaveData.Saveables = City._SaveableLoader._GetInfo;
+        SaveData.ShowParameter = City._Pokazateli._SaveInfo;
+        SaveData.CityStatistics = City._CityStatistics._SaveInfo;
+        SaveData.CityFactors = City._Factors._SaveInfo;
 
         string path = Path.Combine(Application.persistentDataPath, "LocalSave.json");
 
-        if(callback != null)
-        {
-            Nto.Log log = new Nto.Log();
-            log.player_name = SaveData.PlayerName;
-            log.comment = "Сохранение игры.";
-
-            NtoServerInterface.SetResource(log, Nto.ResourceType.SaveData, Newtonsoft.Json.JsonConvert.SerializeObject(SaveData), callback);
-        }
-
         File.WriteAllText(path, Newtonsoft.Json.JsonConvert.SerializeObject(SaveData));
-    }
-
-    public void Save()
-    {
-        Save(null);
     }
 }
 
+[System.Serializable]
 public class SaveData
 {
-    public string PlayerName;
+    public string PlayerPosition = "X(0)Y(0)Z(0)XRot(0)YRot(0)";
+    public string Seed = "";
+    public int MapSize = 1;
     public float GameTime = 0;
+    public bool StartBonus = false;
 
     public string[] Facilities = new string[0];
     public string[] Bears = new string[0];
     public string[] Fields = new string[0];
+    public string[] Saveables = new string[0];
 
-    public string CityStorage = "0;0;0;0;0";
-    public string CityEnergosystem = "0;0;0;1";
-    public string CityFoodstream = "0;0;0;1";
-    public string CityFactors = "";
-    public string Research = "0;0;0;0;0;0;0;0";
-    public string Weather = "0;0";
+    public string CityStorage = "EHoney(0)Berezenium(0)Metal(0)Wood(0)Robots(0)Bee(0)Snowrunners(0)Astressin(0)Ratonik(0)Steamul(0)Antisleep(0)";
+    public string CityEnergosystem = "Stored(0)Energosystem(0)";
+    public string CityFoodstream = "Food(0)Saturation(1)ConsumeMode(1)";
+    public string Research = "Electricity(0)Cold(0)Medicine(0)Travels(0)Household(0)Food(0)Production(0)Mining(0)";
+    public string Weather = "Cold(2)";
+    public string CitySally = "Contents(0;0;0;0;0;0;0;1;0;0;0;1;0;0;0;1;1;0;0;1;0;0;0;0;0;0;0;0;0;0;0)Count(0)";
+    public string ShowParameter = "Show()";
+    public string CityStatistics = $"Controls(0;0;0;0;0;0;0;0;0;0;0;0)Hour(0)Count(0)";
+    public string CityFactors = $"Test(0)Time(0)";
 
-    public string[] CityMessages = new string[0];
-
-    public bool Compare(SaveData saveData)
-    {
-        if (saveData == null)
-        {
-            return false;
-        }
-
-        if (CityStorage != saveData.CityStorage)
-        {
-            return false;
-        }
-
-        if (CityEnergosystem != saveData.CityEnergosystem)
-        {
-            return false;
-        }
-
-        if (CityFactors != saveData.CityFactors)
-        {
-            return false;
-        }
-
-        if (CityFoodstream != saveData.CityFoodstream)
-        {
-            return false;
-        }
-
-        if (Research != saveData.Research)
-        {
-            return false;
-        }
-
-        if (Weather != saveData.Weather)
-        {
-            return false;
-        }
-
-        if (PlayerName != saveData.PlayerName)
-        {
-            return false;
-        }
-
-        if (GameTime != saveData.GameTime)
-        {
-            return false;
-        }
-        
-        if(Facilities.Length != saveData.Facilities.Length)
-        {
-            return false;
-        }
-        else
-        {
-            for (int i = 0; i < Facilities.Length; i++)
-            {
-                if(Facilities[i] != saveData.Facilities[i])
-                {
-                    return false;
-                }
-            }
-        }
-
-        if (Bears.Length != saveData.Bears.Length)
-        {
-            return false;
-        }
-        else
-        {
-            for (int i = 0; i < Bears.Length; i++)
-            {
-                if (Bears[i] != saveData.Bears[i])
-                {
-                    return false;
-                }
-            }
-        }
-
-        if (Fields.Length != saveData.Fields.Length)
-        {
-            return false;
-        }
-        else
-        {
-            for (int i = 0; i < Fields.Length; i++)
-            {
-                if (Fields[i] != saveData.Fields[i])
-                {
-                    return false;
-                }
-            }
-        }
-
-        if (CityMessages.Length != saveData.CityMessages.Length)
-        {
-            return false;
-        }
-        else
-        {
-            for (int i = 0; i < CityMessages.Length; i++)
-            {
-                if (CityMessages[i] != saveData.CityMessages[i])
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
+    public string[] Schedules = new string[] { "Hours(0000000111111111111110000)Bears()" };
 }
 

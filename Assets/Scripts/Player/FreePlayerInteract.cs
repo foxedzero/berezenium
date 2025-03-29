@@ -9,6 +9,16 @@ public class FreePlayerInteract : MonoBehaviour
     [SerializeField] private CursorIconInfo Cursor;
     private IInteractable Pointed;
 
+    private void OnDisable()
+    {
+        if (Pointed != null)
+        {
+            Pointed.Indicate(false);
+            Pointed = null;
+            CursorManager.EditIcon(Cursor, true);
+        }
+    }
+
     private void Update()
     {
         if (CheckClick())
@@ -17,26 +27,34 @@ public class FreePlayerInteract : MonoBehaviour
             if (Physics.Raycast(Camera.ScreenPointToRay(Input.mousePosition), out hit, 1000, LayerMask))
             {
                 IInteractable interactable = hit.transform.GetComponentInParent<IInteractable>();
-                if (interactable != null)
+                if (interactable != null && interactable._AbstractUse)
                 {
+                    if(Pointed != null  && Pointed != interactable)
+                    {
+                        Pointed.Indicate(false);
+                    }
+
                     Pointed = interactable;
+                    Pointed.Indicate(true);
                     CursorManager.EditIcon(Cursor, false);
                 }
-                else
+                else if(Pointed != null )
                 {
+                    Pointed.Indicate(false);
                     Pointed = null;
                     CursorManager.EditIcon(Cursor, true);
                 }
 
-                if (Pointed != null && InputManager.GetButtonDown(InputManager.ButtonEnum.Interact))
+                if (Pointed != null  && InputManager.GetButtonDown(InputManager.ButtonEnum.Interact))
                 {
                     Pointed.Interact();
                 }
             }
             else
             {
-                if (Pointed != null)
+                if (Pointed != null )
                 {
+                    Pointed.Indicate(false);
                     Pointed = null;
                     CursorManager.EditIcon(Cursor, true);
                 }
@@ -46,6 +64,7 @@ public class FreePlayerInteract : MonoBehaviour
         {
             if (Pointed != null)
             {
+                Pointed.Indicate(false);
                 Pointed = null;
                 CursorManager.EditIcon(Cursor, true);
             }

@@ -1,254 +1,605 @@
+
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using static UserBear;
 
-public class UserBear : MonoBehaviour, IPointerDownHandler, IDragHandler
+public class UserBear : ChooseVariant, IPointerDownHandler, IDragHandler, IPointerClickHandler, ICancelable
 {
-    [SerializeField] protected RectTransform RectTransform;
+    public enum Sorting { Index, Name, Kasta, Work, Facility, Health, Stress, Tired, Schedule }
+    public enum DisplayInfo {Index = 1, Kasta = 2, Work = 4, Facility = 8, Health = 16, Stress = 32, Tired = 64, Schedule = 128}
 
-    [SerializeField] private RectTransform Content;
-    [SerializeField] private IlusionHolders IlusionHolders;
-    [SerializeField] private Text List;
     private Bear[] Bears = new Bear[0];
 
-    [SerializeField] private Text Age0Text, Age1Text;
-    [SerializeField] private Text KastaText;
     [SerializeField] private Text SortText;
-    [SerializeField] private Text Label;
-    [SerializeField] private GameObject NameField;
-    [SerializeField] private GameObject IndexField;
+    [SerializeField] private Text SortInfoText;
 
-    private int[] Age = new int[] { 0, 100};
-    private int Kasta = -1;
-    private int Sort = -1;
-    private string BearName = "";
-    private int BearIndex = -1;
+    [SerializeField] private RectTransform[] Sizing;
+
+    private int[] Exlude = null;
+
+    private RectTransform[] Contents = new RectTransform[0];
+
+    private Sorting SortBy = Sorting.Index;
+    private string SortInfo = "";
+    private int Display = 0;
+    static private int UserDisplay = 0;
+    static private bool Exluding = true;
+    static private bool OutClose = true;
+     private GameObject Outing = null;
 
     public delegate void BearReturn(Bear bear);
     private BearReturn ToReturn = null;
 
     private Vector2 StartPosition = Vector2.zero;
+    private bool Initialized = false;
 
-    private void OnDestroy()
+    private bool NoWorkDoHome = false;
+    public bool _NoWorkDoHome
     {
+        get
+        {
+            return NoWorkDoHome;
+        }
+        set
+        {
+            NoWorkDoHome = value;
+        }
+    }
+
+    protected override void OnDestroy()
+    {
+        base.OnDestroy();
+
         City._DataBase.OnBearChanges -= UpdateInfo;
     }
 
-    public void SetInfo(string label, BearReturn toReturn)
+    public void SetInfo(string label, BearReturn toReturn, Sorting sorting = Sorting.Index, string sortInfo = "", int display = 0, int[] exlude = null)
     {
+        if(City._DataBase._Bears.Length == 0)
+        {
+            Debug.LogError($"нет медведей");
+            Destroy(gameObject);
+            UserInteract.AskMessage("Нет медведей!", "У вас нет ни единого медведя, стоит все же открыть капсулы и спасти их.");
+            return;
+        }
+
         Label.text = label;
         ToReturn = toReturn;
+        Display = display;
+        SortBy = sorting;
+        Exlude = exlude;
+        switch (SortBy)
+        {
+            case Sorting.Index:
+                SortText.text = "По номеру";
+                break;
+            case Sorting.Name:
+                SortText.text = "По имени";
+                break;
+            case Sorting.Kasta:
+                SortText.text = "По специализации";
+                break;
+            case Sorting.Work:
+                SortText.text = "По работоспособности";
+                break;
+            case Sorting.Facility:
+                SortText.text = "По назначению в здание";
+                break;
+            case Sorting.Health:
+                SortText.text = "По здоровью";
+                break;
+            case Sorting.Stress:
+                SortText.text = "По стрессу";
+                break;
+            case Sorting.Tired:
+                SortText.text = "По усталости";
+                break;
+            case Sorting.Schedule:
+                SortText.text = "По расписанию";
+                break;
+        }
+
+        if (sortInfo == "")
+        {
+            SetDefaultInfo();
+        }
+        else
+        {
+            SortInfo = sortInfo;
+            SortInfoText.text = sortInfo;
+        }
 
         City._DataBase.OnBearChanges += UpdateInfo;
         UpdateInfo();
 
-        IlusionHolders.SetInfo(null, Return);
+        CancelQueue.Register(this, false);
     }
 
-    public void EditBearFilter(int index)
+    public void EditSorting()
     {
-        switch (index)
-        {
-            case 0:
-                UserInteract.AskInput("", SetBearAge0);
-                break;
-            case 1:
-                UserInteract.AskInput("", SetBearAge1);
-                break;
-            case 2:
-                UserInteract.AskVariants("", new string[] { "Любая", "Неопределёно", "Пасечник", "Конструктор", "Программист", "Биоинженер", "Первопроходец", "Творец" }, new int[] { -1, 0, 1, 2, 3, 4, 5, 6 }, SetBearKasta);
-                break;
-            case 3:
-                UserInteract.AskVariants("", new string[] { "По номеру", "По имени", "По навыку", "Не имеет работы", "Не имеет жилья", "По здоровью", "По удовлетворенности", "По возрасту" }, new int[] { -1, 0, 1, 2, 3, 4, 5, 6 }, SetBearSorting);
-                break;
-            case 4:
-                UserInteract.AskInput("", SetBearName);
-                break;
-        }
-    }
-    public void SetBearName(string info)
-    {
-        BearName = info;
-
-        UpdateInfo();
-    }
-    public void SetBearIndex(string info)
-    {
-        if (info.Length <= 0)
-        {
-            BearIndex = -1;
-        }
-        else
-        {
-            BearIndex = StaticTools.StringToInt(info);
-        }
-
-        UpdateInfo();
-    }
-    public void SetBearAge0(string info)
-    {
-        Age[0] = Mathf.Min(Mathf.Clamp(StaticTools.StringToInt(info), 0, 100), Age[1]);
-        Age0Text.text = $"от {Age[0]}";
-
-        UpdateInfo();
-    }
-    public void SetBearAge1(string info)
-    {
-        Age[1] = Mathf.Max(Mathf.Clamp(StaticTools.StringToInt(info), 0, 100), Age[0]);
-        Age1Text.text = $"до {Age[1]}";
-        UpdateInfo();
-    }
-    public void SetBearKasta(int index)
-    {
-        Kasta = index;
-        if (Kasta == -1)
-        {
-            KastaText.text = "Любая";
-        }
-        else
-        {
-            KastaText.text = ((Bear.Kasta)index).ToString();
-        }
-
-        UpdateInfo();
+        Outing = UserInteract.AskVariants("Сортировка", new string[] {"По номеру", "По имени" , "По специализации", "По работоспособности", "По назначению в здание", "По здоровью", "По стрессу", "По усталости", "По расписанию" }, new int[] {0, 1, 2, 3, 4, 5, 6,7, 8}, SetBearSorting).gameObject;
     }
     public void SetBearSorting(int index)
     {
-        NameField.SetActive(index == 0);
-        IndexField.SetActive(index == -1);
-
-        Sort = index;
-        switch (index)
+        SortBy = (Sorting)index;
+        switch (SortBy)
         {
-            case -1:
+            case Sorting.Index:
                 SortText.text = "По номеру";
                 break;
-            case 0:
+            case Sorting.Name:
                 SortText.text = "По имени";
                 break;
-            case 1:
-                SortText.text = "По навыку";
+            case Sorting.Kasta:
+                SortText.text = "По специализации";
                 break;
-            case 2:
-                SortText.text = "Не имеет работы";
+            case Sorting.Work:
+                SortText.text = "По работоспособности";
                 break;
-            case 3:
-                SortText.text = "Не имеет жилья";
+            case Sorting.Facility:
+                SortText.text = "По назначению в здание";
                 break;
-            case 4:
+            case Sorting.Health:
                 SortText.text = "По здоровью";
                 break;
-            case 5:
-                SortText.text = "По удовлетворенности";
+            case Sorting.Stress:
+                SortText.text = "По стрессу";
                 break;
-            case 6:
-                SortText.text = "По возрасту";
+            case Sorting.Tired:
+                SortText.text = "По усталости";
+                break;
+            case Sorting.Schedule:
+                SortText.text = "По расписанию";
                 break;
         }
+
+        SetDefaultInfo();
+        UpdateInfo();
+    }
+
+    public void EditSortInfo()
+    {
+        switch (SortBy)
+        {
+            case Sorting.Index:
+                Outing = UserInteract.AskVariants("Номер", new string[] {"По возрастанию", "По убыванию"}, new int[] {0, 1}, SetUpping).gameObject;
+                break;
+            case Sorting.Name:
+                Outing = UserInteract.AskInput("для алфавитной сортировки оставьте строку пустой", SetSortInfo).gameObject;
+                break;
+            case Sorting.Kasta:
+                Outing = UserInteract.AskVariants("Специализация", new string[] { "Неопределено", "Пасечник", "Конструктор", "Программист", "Биоинженер", "Первопроходец" }, new int[] { 0, 1, 2, 3, 4, 5 }, SetKasta).gameObject;
+                break;
+            case Sorting.Work:
+                Outing = UserInteract.AskVariants("Работоспособность", new string[] { "По возрастанию", "По убыванию" }, new int[] { 0, 1 }, SetUpping).gameObject;
+                break;
+            case Sorting.Facility:
+                Outing = UserInteract.AskVariants("Здание", new string[] { "Работа", "Жилище" }, new int[] { 0, 1 }, SetFacility).gameObject;
+                break;
+            case Sorting.Health:
+                Outing = UserInteract.AskVariants("Здоровье", new string[] { "По возрастанию", "По убыванию" }, new int[] { 0, 1 }, SetUpping).gameObject;
+                break;
+            case Sorting.Stress:
+                Outing = UserInteract.AskVariants("Стресс", new string[] { "По возрастанию", "По убыванию" }, new int[] { 0, 1 }, SetUpping).gameObject;
+                break;
+            case Sorting.Tired:
+                Outing = UserInteract.AskVariants("Усталость", new string[] { "По возрастанию", "По убыванию" }, new int[] { 0, 1 }, SetUpping).gameObject;
+                break;
+            case Sorting.Schedule:
+                Outing = UserInteract.AskVariants("Расписание", new string[] { "По возрастанию", "По убыванию" }, new int[] { 0, 1 }, SetUpping).gameObject;
+                break;
+        }
+    }
+    public void SetDefaultInfo()
+    {
+        switch (SortBy)
+        {
+            case Sorting.Index:
+                SortInfo = "Возрастание";
+                break;
+            case Sorting.Name:
+                SortInfo = "";
+                break;
+            case Sorting.Kasta:
+                SortInfo = "Неопределено";
+                break;
+            case Sorting.Work:
+                SortInfo = "Возрастание";
+                break;
+            case Sorting.Facility:
+                SortInfo = "Работа";
+                break;
+            case Sorting.Health:
+                SortInfo = "Возрастание";
+                break;
+            case Sorting.Stress:
+                SortInfo = "Возрастание";
+                break;
+            case Sorting.Tired:
+                SortInfo = "Возрастание";
+                break;
+            case Sorting.Schedule:
+                SortInfo = "Возрастание";
+                break;
+        }
+        SortInfoText.text = SortInfo;
+    }
+    public void SetSortInfo(string info)
+    {
+        SortInfo = info;
+        SortInfoText.text = SortInfo;
+
+        UpdateInfo();
+    }
+
+    public void SetFacility(int index)
+    {
+        if (index == 0)
+        {
+            SortInfo = "Работа";
+        }
+        else
+        {
+            SortInfo = "Жилище";
+        }
+        SortInfoText.text = SortInfo;
+
+        UpdateInfo();
+    }
+    public void SetUpping(int index)
+    {
+        if(index == 0)
+        {
+            SortInfo = "Возрастание";
+        }
+        else
+        {
+            SortInfo = "Убывание";
+        }
+        SortInfoText.text = SortInfo;
+
+        UpdateInfo();
+    }
+    public void SetKasta(int index)
+    {
+        SortInfo = $"{(Bear.Kasta)index}";
+        SortInfoText.text = SortInfo;
+        UpdateInfo();
+    }
+
+    public void ToggleDisplayInfo(int display)
+    {
+        if (display == -4)
+        {
+            OutClose = !OutClose;
+            UpdateInfo();
+            return;
+        }
+        if (display == -3)
+        {
+            Exluding = !Exluding;
+            UpdateInfo();
+            return;
+        }
+        if (display == -2)
+        {
+            UserDisplay = 0;
+            UpdateInfo();
+            return;
+        }
+        else if (display == -1)
+        {
+            UserDisplay = 255;
+            UpdateInfo();
+            return;
+        }
+
+        bool[] bools = StaticTools.FromByteBool(UserDisplay);
+        bools[display] = !bools[display];
+
+        UserDisplay = StaticTools.ToByteBool(bools);
 
         UpdateInfo();
     }
 
     public void UpdateInfo()
     {
-        Bear[] bears = new Bear[0];
+        Bear[] bears = null;
 
-        if (Sort == -1 && BearIndex != -1 && !(BearIndex < 0 || BearIndex >= City._DataBase._Bears.Length))
+        if(Exlude == null || Exlude.Length == 0 || !Exluding)
         {
-            bears = new Bear[] { City._DataBase._Bears[BearIndex] };
+            bears = new Bear[City._DataBase._Bears.Length];
+            System.Array.Copy(City._DataBase._Bears, bears, bears.Length);
         }
         else
         {
-            foreach (Bear bear in City._DataBase._Bears)
+            bears = new Bear[City._DataBase._Bears.Length - Exlude.Length];
+            int index = 0;
+            for(int i = 0; i < City._DataBase._Bears.Length; i++)
             {
-                if (bear._Age >= Age[0] && bear._Age <= Age[1])
+                if(!StaticTools.Contains(Exlude, i))
                 {
-                    if (Kasta == -1 || bear._Kasta.GetHashCode() == Kasta)
-                    {
-                        bears = StaticTools.ExpandMassive(bears, bear);
-                    }
+                    bears[index] = City._DataBase._Bears[i];
+                    index++;
+                }
+            }
+        }
+
+        if(bears.Length == 0)
+        {
+            foreach (RectTransform content1 in Contents)
+            {
+                Destroy(content1.gameObject);
+            }
+
+            RectTransform.sizeDelta = new Vector2(200, 180);
+
+            foreach (RectTransform rectTransform in Sizing)
+            {
+                rectTransform.sizeDelta = new Vector2(170, 40);
+            }
+            Contents = new RectTransform[0];
+
+            Vector2 position1 = CalculatePosition() + new Vector2(RectTransform.sizeDelta.x / 2, -RectTransform.sizeDelta.y / 2);
+            if (position1.x + RectTransform.sizeDelta.x / 2 > 1920)
+            {
+                if (position1.x - RectTransform.sizeDelta.x * 1.5f < 0)
+                {
+                    position1.x -= (position1.x + RectTransform.sizeDelta.x / 2) - 1920;
+                }
+                else
+                {
+                    position1.x -= RectTransform.sizeDelta.x;
                 }
             }
 
-            int[] bearSatisfactions = new int[0];
-            int[] bearNamePriorities = new int[0];
-            if (Sort == 5)
-            {
-                bearSatisfactions = new int[bears.Length];
-                for (int i = 0; i < bears.Length; i++)
-                {
-                    bearSatisfactions[i] = bears[i]._Satisfaction;
-                }
-            }
-            else if (Sort == 0 && BearName.Length > 0)
-            {
-                bearNamePriorities = new int[bears.Length];
-                for (int i = 0; i < bears.Length; i++)
-                {
-                    bearNamePriorities[i] = StaticTools.Match(BearName, bears[i]._Name);
-                }
-            }
+            RectTransform.anchoredPosition = position1;
 
+            Initialized = true;
+            return;
+        }
+
+        int[] bearNamePriorities = new int[0];
+        if (SortBy == Sorting.Name && SortInfo.Length > 0)
+        {
+            bearNamePriorities = new int[bears.Length];
+            for (int i = 0; i < bears.Length; i++)
+            {
+                bearNamePriorities[i] = StaticTools.Match(SortInfo, bears[i]._Name);
+            }
+        }
+
+        if (SortBy != Sorting.Index)
+        {
             for (int i = 0; i < bears.Length; i++)
             {
                 int high = i;
 
-                for (int ii = i + 1; ii < bears.Length; ii++)
+                bool breakingBad = false;
+
+                switch (SortBy)
                 {
-                    switch (Sort)
+                    case Sorting.Kasta:
+                        switch (SortInfo)
+                        {
+                            case "Неопределено":
+                                if (bears[high]._Kasta == Bear.Kasta.Неопределено)
+                                {
+                                    breakingBad = true;
+                                }
+                                break;
+                            case "Пасечник":
+                                if (bears[high]._Kasta == Bear.Kasta.Пасечник)
+                                {
+                                    breakingBad = true;
+                                }
+                                break;
+                            case "Конструктор":
+                                if (bears[high]._Kasta == Bear.Kasta.Конструктор)
+                                {
+                                    breakingBad = true;
+                                }
+                                break;
+                            case "Программист":
+                                if (bears[high]._Kasta == Bear.Kasta.Программист)
+                                {
+                                    breakingBad = true;
+                                }
+                                break;
+                            case "Биоинженер":
+                                if (bears[high]._Kasta == Bear.Kasta.Биоинженер)
+                                {
+                                    breakingBad = true;
+                                }
+                                break;
+                            case "Первопроходец":
+                                if (bears[high]._Kasta == Bear.Kasta.Первопроходец)
+                                {
+                                    breakingBad = true;
+                                }
+                                break;
+                        }
+                        break;
+                }
+
+                if (!breakingBad)
+                {
+                    for (int ii = i + 1; ii < bears.Length; ii++)
                     {
-                        case 0:
-                            if (BearName.Length <= 0)
-                            {
-                                if (bears[ii]._Name.CompareTo(bears[high]._Name) < 0)
+                        switch (SortBy)
+                        {
+                            case Sorting.Name:
+                                if (SortInfo.Length <= 0)
+                                {
+                                    if (bears[ii]._Name.CompareTo(bears[high]._Name) < 0)
+                                    {
+                                        high = ii;
+                                    }
+                                }
+                                else
+                                {
+                                    if (bearNamePriorities[ii] > bearNamePriorities[high])
+                                    {
+                                        high = ii;
+                                    }
+                                }
+                                break;
+                            case Sorting.Work:
+                                if (SortInfo == "Возрастание")
+                                {
+                                    if (bears[ii]._Work > bears[high]._Work)
+                                    {
+                                        high = ii;
+                                    }
+                                }
+                                else
+                                {
+                                    if (bears[ii]._Work < bears[high]._Work)
+                                    {
+                                        high = ii;
+                                    }
+                                }
+                                break;
+                            case Sorting.Facility:
+                                if (SortInfo == "Работа")
+                                {
+                                    if (bears[ii]._Facility != null)
+                                    {
+                                        high = ii;
+                                        breakingBad = true;
+                                    }
+                                }
+                                else
+                                {
+                                    if (bears[ii]._Home != null)
+                                    {
+                                        high = ii;
+                                        breakingBad = true;
+                                    }
+                                }
+                                break;
+                            case Sorting.Kasta:
+                                switch (SortInfo)
+                                {
+                                    case "Неопределено":
+                                        if (bears[ii]._Kasta == Bear.Kasta.Неопределено)
+                                        {
+                                            high = ii;
+                                            breakingBad = true;
+                                        }
+                                        break;
+                                    case "Пасечник":
+                                        if (bears[ii]._Kasta == Bear.Kasta.Пасечник)
+                                        {
+                                            high = ii;
+                                            breakingBad = true;
+                                        }
+                                        break;
+                                    case "Конструктор":
+                                        if (bears[ii]._Kasta == Bear.Kasta.Конструктор)
+                                        {
+                                            high = ii;
+                                            breakingBad = true;
+                                        }
+                                        break;
+                                    case "Программист":
+                                        if (bears[ii]._Kasta == Bear.Kasta.Программист)
+                                        {
+                                            high = ii;
+                                            breakingBad = true;
+                                        }
+                                        break;
+                                    case "Биоинженер":
+                                        if (bears[ii]._Kasta == Bear.Kasta.Биоинженер)
+                                        {
+                                            high = ii;
+                                            breakingBad = true;
+                                        }
+                                        break;
+                                    case "Первопроходец":
+                                        if (bears[ii]._Kasta == Bear.Kasta.Первопроходец)
+                                        {
+                                            high = ii;
+                                            breakingBad = true;
+                                        }
+                                        break;
+                                }
+                                if (breakingBad == false && bears[ii]._Kasta.GetHashCode() < bears[high]._Kasta.GetHashCode())
                                 {
                                     high = ii;
                                 }
-                            }
-                            else
-                            {
-                                if (bearNamePriorities[ii] > bearNamePriorities[high])
+                                break;
+                            case Sorting.Health:
+                                if (SortInfo == "Возрастание")
                                 {
-                                    high = ii;
+                                    if (bears[ii]._Health < bears[high]._Health)
+                                    {
+                                        high = ii;
+                                    }
                                 }
-                            }
+                                else
+                                {
+                                    if (bears[ii]._Health > bears[high]._Health)
+                                    {
+                                        high = ii;
+                                    }
+                                }
+                                break;
+                            case Sorting.Schedule:
+                                if (SortInfo == "Возрастание")
+                                {
+                                    if (bears[ii]._Schedule < bears[high]._Schedule)
+                                    {
+                                        high = ii;
+                                    }
+                                }
+                                else
+                                {
+                                    if (bears[ii]._Schedule > bears[high]._Schedule)
+                                    {
+                                        high = ii;
+                                    }
+                                }
+                                break;
+                            case Sorting.Stress:
+                                if (SortInfo == "Возрастание")
+                                {
+                                    if (bears[ii]._Stress < bears[high]._Stress)
+                                    {
+                                        high = ii;
+                                    }
+                                }
+                                else
+                                {
+                                    if (bears[ii]._Stress > bears[high]._Stress)
+                                    {
+                                        high = ii;
+                                    }
+                                }
+                                break;
+                            case Sorting.Tired:
+                                if (SortInfo == "Возрастание")
+                                {
+                                    if (bears[ii]._Tired < bears[high]._Tired)
+                                    {
+                                        high = ii;
+                                    }
+                                }
+                                else
+                                {
+                                    if (bears[ii]._Tired > bears[high]._Tired)
+                                    {
+                                        high = ii;
+                                    }
+                                }
+                                break;
+                        }
+
+                        if (breakingBad)
+                        {
                             break;
-                        case 1:
-                            if (bears[ii]._Skill > bears[high]._Skill)
-                            {
-                                high = ii;
-                            }
-                            break;
-                        case 2:
-                            if ((bears[ii]._Facility == null).GetHashCode() > (bears[high]._Facility == null).GetHashCode())
-                            {
-                                high = ii;
-                            }
-                            break;
-                        case 3:
-                            if ((bears[ii]._Home == null).GetHashCode() > (bears[high]._Home == null).GetHashCode())
-                            {
-                                high = ii;
-                            }
-                            break;
-                        case 4:
-                            if (bears[ii]._Health < bears[high]._Health)
-                            {
-                                high = ii;
-                            }
-                            break;
-                        case 5:
-                            if (bearSatisfactions[ii] < bearSatisfactions[high])
-                            {
-                                high = ii;
-                            }
-                            break;
-                        case 6:
-                            if (bears[ii]._Age < bears[high]._Age)
-                            {
-                                high = ii;
-                            }
-                            break;
+                        }
                     }
                 }
 
@@ -256,13 +607,7 @@ public class UserBear : MonoBehaviour, IPointerDownHandler, IDragHandler
                 bears[i] = bears[high];
                 bears[high] = buffer;
 
-                if (Sort == 5)
-                {
-                    int sbuffer = bearSatisfactions[i];
-                    bearSatisfactions[i] = bearSatisfactions[high];
-                    bearSatisfactions[high] = sbuffer;
-                }
-                else if (Sort == 0 && BearName.Length > 0)
+                if (SortBy == Sorting.Name && SortInfo.Length > 0)
                 {
                     int sbuffer = bearNamePriorities[i];
                     bearNamePriorities[i] = bearNamePriorities[high];
@@ -270,51 +615,231 @@ public class UserBear : MonoBehaviour, IPointerDownHandler, IDragHandler
                 }
             }
         }
-
-        Bears = bears;
-
-        string info = "";
-
-        for (int i = 0; i < bears.Length; i++)
+        else
         {
-            switch (Sort)
+            if(SortInfo != "Возрастание")
             {
-                case -1:
-                    info += $"{bears[i]._Name}  #{StaticTools.IndexOf(City._DataBase._Bears, bears[i])}\n";
-                    break;
-                case 1:
-                    info += $"{bears[i]._Name}  {bears[i]._Skill}\n";
-                    break;
-                case 2:
-                    info += $"{bears[i]._Name}  {(bears[i]._Facility != null ? bears[i]._Facility._ConstructInfo.Name + $"#{StaticTools.IndexOf(City._DataBase._Facilities, bears[i]._Facility)}" : "нет")}\n";
-                    break;
-                case 3:
-                    info += $"{bears[i]._Name}  {(bears[i]._Home != null ? bears[i]._Home._ConstructInfo.Name + $"#{StaticTools.IndexOf(City._DataBase._Facilities, bears[i]._Home)}" : "нет")}\n";
-                    break;
-                case 4:
-                    info += $"{bears[i]._Name}  {bears[i]._Health}\n";
-                    break;
-                case 5:
-                    info += $"{bears[i]._Name}  {bears[i]._Satisfaction}\n";
-                    break;
-                case 6:
-                    info += $"{bears[i]._Name}  {bears[i]._Age}\n";
-                    break;
-                default:
-                    info += $"{bears[i]._Name}\n";
-                    break;
+                System.Array.Reverse(bears);
             }
         }
 
-        List.text = info;
-        IlusionHolders._MaxIndex = bears.Length - 1;
+        Bears = bears;
 
-        Content.sizeDelta = new Vector2(0, 35 * Bears.Length);
+        string[] info = new string[bears.Length];
+
+        int display = Display | UserDisplay;
+        switch (SortBy)
+        {
+            case Sorting.Index:
+                display |= DisplayInfo.Index.GetHashCode();
+                break;
+            case Sorting.Work:
+                display |= DisplayInfo.Work.GetHashCode();
+                break;
+            case Sorting.Facility:
+                    display |= DisplayInfo.Facility.GetHashCode();
+                break;
+            case Sorting.Health:
+                display |= DisplayInfo.Health.GetHashCode();
+                break;
+            case Sorting.Stress:
+                display |= DisplayInfo.Stress.GetHashCode();
+                break;
+            case Sorting.Tired:
+                display |= DisplayInfo.Tired.GetHashCode();
+                break;
+            case Sorting.Schedule:
+                display |= DisplayInfo.Schedule.GetHashCode();
+                break;
+            case Sorting.Kasta:
+                display |= DisplayInfo.Kasta.GetHashCode();
+                break;
+        }
+        bool[] displayInfo = StaticTools.FromByteBool(display);
+        for (int i = 0; i < bears.Length; i++)
+        {
+             info[i] = $"{bears[i]._Name}" +
+                $"{(displayInfo[1] ? $"  {bears[i]._Kasta}" : "")}" +
+                $"{(displayInfo[0] ? $"  Id: {StaticTools.IndexOf(City._DataBase._Bears, bears[i])} " : "")}" +
+                $"{(displayInfo[2] ? $"  Р: {(int)(bears[i]._Work * 100f)}%" : "")}" +
+                 $"{(displayInfo[3] ? (bears[i]._Sally == null ? (NoWorkDoHome == false ? $"  МР: {(bears[i]._Facility != null ? bears[i]._Facility._ConstructInfo.Name : "нет")}" : $"  Ж: {(bears[i]._Home != null ? bears[i]._Home._ConstructInfo.Name : "нет")}") : $"  Вылазка: {bears[i]._Sally._Name}") : "")}" +
+                $"{(displayInfo[4] ? $"  ОЗ: {bears[i]._Health}" : "")}" +
+                $"{(displayInfo[5] ? $"  Стресс: {bears[i]._Stress}%" : "")}" +
+                $"{(displayInfo[6] ? $"  Уст: {Mathf.RoundToInt(bears[i]._Tired * 100)}%" : "")}" +
+                $"{(displayInfo[7] ? $"  Расп: {bears[i]._Schedule}" : "")}";
+
+        }
+
+        RectTransform content = Instantiate(ContentPrefab, List).GetComponent<RectTransform>();
+
+        foreach(RectTransform content1 in Contents)
+        {
+            Destroy(content1.gameObject);
+        }
+
+        Contents = new RectTransform[1] { content };
+        float[] widthes = new float[0];
+
+        bool sectored = false;
+        float width = 150;
+        float yPosition = 175;
+
+        if (Label.text.Length == 0)
+        {
+            Label.text = "Выбрать медведя";
+        }
+        width = Mathf.Max(150, Label.preferredWidth + 40);
+
+        Variants = new Variant[bears.Length];
+        if (info.Length > 1)
+        {
+            for (int i = 0; i < info.Length; i++)
+            {
+                Variant newVariant = Instantiate(VariantPrefab, content).GetComponent<Variant>();
+
+                Variants[i] = newVariant;
+
+                yPosition += 20;
+
+                newVariant.SetInfo(this, info[i], i, i, -yPosition);
+
+                if (newVariant._Width > width)
+                {
+                    width = newVariant._Width;
+                }
+
+                yPosition += 20;
+
+                if (yPosition >= StaticTools.ScreenHeight - 50)
+                {
+                    content.sizeDelta = new Vector2(width, StaticTools.ScreenHeight);
+
+                    widthes = StaticTools.ExpandMassive(widthes, width);
+
+                    width = 150;
+                    yPosition = 0;
+
+                    content = Instantiate(ContentPrefab, List).GetComponent<RectTransform>();
+
+                    Contents = StaticTools.ExpandMassive(Contents, content);
+
+                    sectored = true;
+                }
+            }
+        }
+        else
+        {
+            Variant newVariant = Instantiate(VariantPrefab, content).GetComponent<Variant>();
+
+            Variants[0] = newVariant;
+
+            yPosition += 20;
+
+            newVariant.SetInfo(this, info[0], 0, 0, -yPosition);
+
+            if (newVariant._Width > width)
+            {
+                width = newVariant._Width;
+            }
+
+            yPosition += 20;
+        }
+
+        widthes = StaticTools.ExpandMassive(widthes, width);
+
+        content.sizeDelta = new Vector2(width, yPosition);
+
+        Vector2 position = RectTransform.anchoredPosition;
+
+        if (sectored)
+        {
+            RectTransform.sizeDelta = new Vector2(StaticTools.Summ(widthes), StaticTools.ScreenHeight);
+
+            if (!Initialized)
+            {
+                position = CalculatePosition() + new Vector2(RectTransform.sizeDelta.x / 2, -RectTransform.sizeDelta.y / 2);
+            }
+
+            float xPosition = 0;
+            for (int i = 0; i < Contents.Length - 1; i++)
+            {
+                xPosition += widthes[i] / 2;
+
+                Contents[i].anchoredPosition = new Vector2(xPosition, -25);
+
+                if(i == 0)
+                {
+                    foreach (RectTransform rectTransform in Sizing)
+                    {
+                        rectTransform.sizeDelta = new Vector2(widthes[i] - 30, 40);
+                    }
+                }
+
+                xPosition += widthes[i] / 2;
+            }
+
+            content.anchoredPosition = new Vector2(xPosition + width / 2, (StaticTools.ScreenHeight - yPosition) / 2 - 25);
+
+            position.y = StaticTools.ScreenHeight / 2;
+        }
+        else
+        {
+            RectTransform.sizeDelta = new Vector2(width, yPosition);
+            
+            foreach(RectTransform rectTransform in Sizing)
+            {
+                rectTransform.sizeDelta = new Vector2(width - 30, 40);
+            }
+
+            if (!Initialized)
+            {
+                position = CalculatePosition() + new Vector2(RectTransform.sizeDelta.x / 2, -RectTransform.sizeDelta.y / 2);
+            }
+
+            content.anchoredPosition = new Vector2(width / 2, 0);
+
+            if (position.y - yPosition / 2 < 0)
+            {
+                if (position.y + RectTransform.sizeDelta.y * 1.5f > Screen.height)
+                {
+                    position.y -= position.y - RectTransform.sizeDelta.y / 2;
+                }
+                else
+                {
+                    position.y += RectTransform.sizeDelta.y;
+                }
+            }
+        }
+
+        if (position.x + RectTransform.sizeDelta.x / 2 > 1920)
+        {
+            if (position.x - RectTransform.sizeDelta.x * 1.5f < 0)
+            {
+                position.x -= (position.x + RectTransform.sizeDelta.x / 2) - 1920;
+            }
+            else
+            {
+                position.x -= RectTransform.sizeDelta.x;
+            }
+        }
+
+        RectTransform.anchoredPosition = position;
+
+        Initialized = true;
     }
 
-    public void Return(int index)
+    public void ChangeExlude(bool answer)
     {
-        if(ToReturn != null)
+        if (answer)
+        {
+            Exluding = !Exluding;
+            UpdateInfo();
+        }
+    }
+
+    public override void Select(int index)
+    {
+        if (ToReturn != null)
         {
             ToReturn.Invoke(Bears[index]);
         }
@@ -327,17 +852,36 @@ public class UserBear : MonoBehaviour, IPointerDownHandler, IDragHandler
         Destroy(gameObject);
     }
 
-    protected Vector2 CalculatePosition()
+    protected override void Update()
     {
-        Vector2 viewPort = Camera.main.ScreenToViewportPoint(Input.mousePosition);
+        if (OutClose && Outing == null)
+        {
+            base.Update();
+        }
+    }
 
-        return new Vector2(1920 * viewPort.x, StaticTools.ScreenHeight * viewPort.y);
+    public void Settings()
+    {
+        bool[] displayInfo = StaticTools.FromByteBool(UserDisplay);
+        Outing = UserInteract.AskVariants("", new string[] { $"{(OutClose ? "Не закрывать при аутклике" : "Закрывать при аутклике")}", $"{(Exluding ? "Не исключать медведей" : "Исключать медведей")}", "Сбросить отображения", "Отображать всё", $"{(displayInfo[0] ? "Не отображать" : "Отображать")} Номер", $"{(displayInfo[1] ? "Не отображать" : "Отображать")} Специализацию", $"{(displayInfo[2] ? "Не отображать" : "Отображать")} Работоспособность", $"{(displayInfo[3] ? "Не отображать" : "Отображать")} Назначения", $"{(displayInfo[4] ? "Не отображать" : "Отображать")} Здоровье", $"{(displayInfo[5] ? "Не отображать" : "Отображать")} Стресс", $"{(displayInfo[6] ? "Не отображать" : "Отображать")} Усталость", $"{(displayInfo[0] ? "Не отображать" : "Отображать")} Расписание" },
+            new int[] { -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7 }, ToggleDisplayInfo).gameObject;
+
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (Input.GetKeyUp(KeyCode.Mouse1))
+        {
+            Settings();
+        }
     }
 
     public void OnPointerDown(PointerEventData eventData)
     {
         StartPosition = RectTransform.anchoredPosition;
         OnDrag(eventData);
+
+        MouseCaptured = true;
     }
 
     public void OnDrag(PointerEventData eventData)

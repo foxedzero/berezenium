@@ -1,4 +1,5 @@
 
+using System.Collections.Generic;
 using UnityEngine;
 
 public class CityResearch : MonoBehaviour
@@ -22,7 +23,7 @@ public class CityResearch : MonoBehaviour
     {
         get
         {
-            return $"{Electricity};{Cold};{Medicine};{Travels};{Household};{Food};{Production};{Mining}";
+            return $"Electricity({Electricity})Cold({Cold})Medicine({Medicine})Travels({Travels})Household({Household})Food({Food})Production({Production})Mining({Mining})";
         }
         set
         {
@@ -31,16 +32,16 @@ public class CityResearch : MonoBehaviour
                 return;
             }
 
-            string[] tokens = value.Split(";");
+            Dictionary<string, string> parameters = StaticTools.GetParameters(value);
 
-            Electricity = StaticTools.StringToFloat(tokens[0]);
-            Cold = StaticTools.StringToFloat(tokens[1]);
-            Medicine = StaticTools.StringToFloat(tokens[2]);
-            Travels = StaticTools.StringToFloat(tokens[3]);
-            Household = StaticTools.StringToFloat(tokens[4]);
-            Food = StaticTools.StringToFloat(tokens[5]);
-            Production = StaticTools.StringToFloat(tokens[6]);
-            Mining = StaticTools.StringToFloat(tokens[7]);
+            Electricity = StaticTools.StringToFloat(parameters["Electricity"]);
+            Cold = StaticTools.StringToFloat(parameters["Cold"]);
+            Medicine = StaticTools.StringToFloat(parameters["Medicine"]);
+            Travels = StaticTools.StringToFloat(parameters["Travels"]);
+            Household = StaticTools.StringToFloat(parameters["Household"]);
+            Food = StaticTools.StringToFloat(parameters["Food"]);
+            Production = StaticTools.StringToFloat(parameters["Production"]);
+            Mining = StaticTools.StringToFloat(parameters["Mining"]);
         }
     }
 
@@ -59,22 +60,86 @@ public class CityResearch : MonoBehaviour
             if(laboratory != null)
             {
                 Laboratories = StaticTools.ExpandMassive(Laboratories, laboratory);
-                laboratory.SetRequiredSkill(GetResearchGoal(laboratory._Target));
             }
         }
     }
-    public void DayPassed()
+
+    public Bear.Kasta ResearchKasta(ResearchType type)
     {
-        foreach(Laboratory laboratory in Laboratories)
+        switch (type)
         {
-            Research(laboratory._Target, laboratory._ResearchPoints);
-            laboratory.SetRequiredSkill(GetResearchGoal(laboratory._Target));
+            case CityResearch.ResearchType.Electricity:
+                return Bear.Kasta.Конструктор;
+            case CityResearch.ResearchType.Cold:
+                return Bear.Kasta.Конструктор;
+            case CityResearch.ResearchType.Medicine:
+                return Bear.Kasta.Биоинженер;
+            case CityResearch.ResearchType.Travels:
+                return Bear.Kasta.Первопроходец;
+            case CityResearch.ResearchType.Household:
+                return Bear.Kasta.Конструктор;
+            case CityResearch.ResearchType.Food:
+                return Bear.Kasta.Биоинженер;
+            case CityResearch.ResearchType.Production:
+                return Bear.Kasta.Конструктор;
+            case CityResearch.ResearchType.Mining:
+                return Bear.Kasta.Конструктор;
+        }
+        return Bear.Kasta.Неопределено;
+    }
+
+    public float GetResearchProgress(ResearchType type, int level)
+    {
+        float points = 0;
+        switch (type)
+        {
+            case ResearchType.Electricity:
+                points = Electricity;
+                break;
+            case ResearchType.Cold:
+                points = Cold;
+                break;
+            case ResearchType.Medicine:
+                points = Medicine;
+                break;
+            case ResearchType.Travels:
+                points = Travels;
+                break;
+            case ResearchType.Household:
+                points = Household;
+                break;
+            case ResearchType.Food:
+                points = Food;
+                break;
+            case ResearchType.Production:
+                points = Production;
+                break;
+            case ResearchType.Mining:
+                points = Mining;
+                break;
         }
 
-        if (OnReseatchUpdate != null)
+        switch (level)
         {
-            OnReseatchUpdate.Invoke();
+            case 0:
+                return Mathf.Clamp01(points / 1000f);
+            case 1:
+                points -= 1000;
+                if (points > 1000)
+                {
+                    return 1;
+                }
+                return Mathf.Clamp01(points / 1000f);
+            case 2:
+                points -= 2000;
+                if (points > 2000)
+                {
+                    return 1;
+                }
+                return Mathf.Clamp01(points / 2000f);
         }
+
+        return 0;
     }
 
     public int GetResearchLevel(ResearchType type)
@@ -122,32 +187,41 @@ public class CityResearch : MonoBehaviour
 
         return 0;
     }
-    public float GetResearchGoal(ResearchType type)
+
+    public void SetResearch(ResearchType type, float value)
     {
         switch (type)
         {
             case ResearchType.Electricity:
-                return GetGoal(Electricity);
+                Electricity = value;
+                break;
             case ResearchType.Cold:
-                return GetGoal(Cold);
+                Cold = value;
+                break;
             case ResearchType.Medicine:
-                return GetGoal(Medicine);
+                Medicine = value;
+                break;
             case ResearchType.Travels:
-                return GetGoal(Travels);
+                Travels = value;
+                break;
             case ResearchType.Household:
-                return GetGoal(Household);
+                Household = value;
+                break;
             case ResearchType.Food:
-                return GetGoal(Food);
+                Food = value;
+                break;
             case ResearchType.Production:
-                return GetGoal(Production);
+                Production = value;
+                break;
             case ResearchType.Mining:
-                return GetGoal(Mining);
+                Mining = value;
+                break;
         }
 
-        return -1;
+        OnReseatchUpdate?.Invoke();
     }
 
-    private void Research(ResearchType type, float value)
+    public void Research(ResearchType type, float value)
     {
         int level = GetResearchLevel(type);
 
@@ -182,151 +256,134 @@ public class CityResearch : MonoBehaviour
         int newLv = GetResearchLevel(type);
         if (level != newLv)
         {
-            CityMessenger.CityMessage message = new CityMessenger.CityMessage("Прорыв в исследовании", "", false);
-            message.Fest = true;
+            CityMessenger.CityMessage message = new CityMessenger.CityMessage("", "");
+            
             switch (type)
             {
                 case ResearchType.Electricity:
+                    message.Label = $"Электроэнергия {City._Research.GetResearchLevel(ResearchType.Electricity)} уровня";
                     switch (newLv)
                     {
                         case 1:
-                            message.Info = $"Уровень исследования электроэнергии повысился. Теперь вы можете строить аккумуляторы, которые позволят вам хранить избыточное электричество.";
+                            message.Info = $"Исследована электроэнергия 1 уровня. Теперь вы можете строить аккумуляторы, которые позволят вам хранить избыточное электричество.";
                             break;
                         case 2:
-                            message.Info = $"Уровень исследования электроэнергии повысился. Эффективность электростанции увелина на 25%.";
+                            message.Info = $"Исследована электроэнергия 2 уровня. Эффективность электростанции увеличена на 10%. Общая эффективность энергосистемы теперь 110%.";
                             break;
                         case 3:
-                            message.Info = $"Уровень исследования электроэнергии повысился. Была разработана технология получение энергии антигравитации, вы можете построить березениумную электростанцию.";
+                            message.Info = $"Исследована электроэнергия 3 уровня. Разработана технология получения энергии на основе магнитно-гравитационных свойств березениума. Теперь вы можете построить березениумную электростанцию.";
                             break;
                     }
                     break;
                 case ResearchType.Cold:
+                    message.Label = $"Отопление {City._Research.GetResearchLevel(ResearchType.Cold)} уровня";
                     switch (newLv)
                     {
                         case 1:
-                            message.Info = $"Уровень исследования отопления повысился. Теперь в зданиях установлены обогреватели. Вы можете их включить в окне здания, они будут давать 2 ед. к хладостойкости, но при этом потреблять ресурс.";
+                            message.Info = $"Исследовано отопление 1 уровня. С этого момента в зданиях доступны обогреватели, их можно включить в окне управления зданием.";
                             break;
                         case 2:
-                            message.Info = $"Уровень исследования отопления повысился.";
+                            message.Info = $"Исследовано отопление 2 уровня. Электростанции будут отоплять ближайшие здания.";
                             break;
                         case 3:
-                            message.Info = $"Уровень исследования отопления повысился.";
+                            message.Info = $"Исследовано отопление 3 уровня. С этого момента вы можете строить уличные отопители для обогрева близлежащих зданий.";
                             break;
                     }
                     break;
                 case ResearchType.Medicine:
+                    message.Label = $"Медицина {City._Research.GetResearchLevel(ResearchType.Medicine)} уровня";
                     switch (newLv)
                     {
                         case 1:
-                            message.Info = $"Уровень исследования медицины повысился.";
+                            message.Info = $"Исследована медицина 1 уровня. Теперь вы можете построить здание фармацевтики, где можно будет сделать Астрессин и Дажьтоник.";
                             break;
                         case 2:
-                            message.Info = $"Уровень исследования медицины повысился. Отныне медпункты лечат на 1 здоровье больше, а также берут на 3 пациеента больше.";
+                            message.Info = $"Исследована медицина 2 уровня. Эффективность медведей, работающих в медпункте, увеличилась на 50%.";
                             break;
                         case 3:
-                            message.Info = $"Уровень исследования медицины повысился.";
+                            message.Info = $"Исследована медицина 3 уровня. Вам стало доступно изготовление Антиспячкина и стимуляторов.";
                             break;
                     }
                     break;
                 case ResearchType.Travels:
+                    message.Label = $"Путешествия {City._Research.GetResearchLevel(ResearchType.Travels)} уровня";
                     switch (newLv)
                     {
                         case 1:
-                            message.Info = $"Уровень исследования путешествий повысился. Медведи, которые ведут разведки, теперь защищены от холода на 3 единицы больше.";
+                            message.Info = $"Исследованы путешествия 1 уровня. Медведи в составе отряда разведки теперь защищены от холода на 4 единицы лучше.";
                             break;
                         case 2:
-                            message.Info = $"Уровень исследования путешествий повысился. С помощью снегоходов медведи будут быстрее (на 50%) и успешнее вести поиски.";
+                            message.Info = $"Исследованы путешествия 2 уровня. Вам стало доступно производство снегоходов на заводе робототехники.";
                             break;
                         case 3:
-                            message.Info = $"Уровень исследования путешествий повысился. Вы можете построить космолёт \"Дюрандаль\".";
+                            message.Info = $"Исследованы путешествия 3 уровня. С этого момента вы можете построить космолет, чтобы покинуть планету и вернуться на родину.";
                             break;
                     }
                     break;
                 case ResearchType.Household:
+                    message.Label = $"Жилища {City._Research.GetResearchLevel(ResearchType.Household)} уровня";
                     switch (newLv)
                     {
                         case 1:
-                            message.Info = $"Уровень исследования жилища повысился. Вы можете построить новый дом - многоэтажка. Она защищенней от холода, а также более вместительна, но дороже в стоимости.";
+                            message.Info = $"Исследованы жилища 1 уровня. Теперь вы можете построить многоэтажный дом, который лучше защищен от холода, чем барак, но требует больших затрат на строительство.";
                             break;
                         case 2:
-                            message.Info = $"Уровень исследования жилища повысился. Была увеличена хладостойкость домов на 3 единицы.";
+                            message.Info = $"Исследованы жилища 2 уровня. Защита домов от холода увеличена на 2 единицы.";
                             break;
                         case 3:
-                            message.Info = $"Уровень исследования жилища повысился.";
+                            message.Info = $"Исследованы жилища 3 уровня. С этого момента вы можете построить особняк.";
                             break;
                     }
                     break;
                 case ResearchType.Food:
+                    message.Label = $"Пища {City._Research.GetResearchLevel(ResearchType.Food)} уровня";
                     switch (newLv)
                     {
                         case 1:
-                            message.Info = $"Уровень исследования пищи повысился. Хладостойкость пасек увеличена на 3 единицы.";
+                            message.Info = $"Исследована пища 1 уровня. Защита пасек от холода увеличена на 3 единицы.";
                             break;
                         case 2:
-                            message.Info = $"Уровень исследования пищи повысился. Пасеки теперь приносят на 10 мёда больше.";
+                            message.Info = $"Исследована пища 2 уровня. Теперь вы можете построить экопасеку.";
                             break;
                         case 3:
-                            message.Info = $"Уровень исследования пищи повысился.";
+                            message.Info = $"Исследована пища 3 уровня. С этого момента вам стало доступно строительство киберпасеки. На заводах робототехники можно собирать киберпчёл.";
                             break;
                     }
                     break;
                 case ResearchType.Production:
+                    message.Label = $"Производство {City._Research.GetResearchLevel(ResearchType.Production)} уровня";
                     switch (newLv)
                     {
                         case 1:
-                            message.Info = $"Уровень исследования производства повысился. Теперь вы можете построить химзавод энергомёда.";
+                            message.Info = $"Исследованы производства 1 уровня. Теперь вы можете построить химический завод энергомёда.";
                             break;
                         case 2:
-                            message.Info = $"Уровень исследования производства повысился. Производство потребляет на 25% меньше ресурсов.";
+                            message.Info = $"Исследованы производства 2 уровня. Производства стали эффективнее на 25%.";
                             break;
                         case 3:
-                            message.Info = $"Уровень исследования производства повысился.";
+                            message.Info = $"Исследованы производства 3 уровня. Вам стала доступна постройка завода двойной обработки березениума.";
                             break;
                     }
                     break;
                 case ResearchType.Mining:
+                    message.Label = $"Добыча {City._Research.GetResearchLevel(ResearchType.Mining)} уровня";
                     switch (newLv)
                     {
                         case 1:
-                            message.Info = $"Уровень исследования добычи повысился. Хладостойкость добывающих точек повышена на 3 ед..";
+                            message.Info = $"Исследована добыча 1 уровня. Защита от холода точек добычи повышена на 3 единицы, а эффективность их работы увеличена на 10%.";
                             break;
                         case 2:
-                            message.Info = $"Уровень исследования добычи повысился. Эффективность добычи увеличена на 25%.";
+                            message.Info = $"Исследована добыча 2 уровня. Теперь вы можете построить карьер березениума.";
                             break;
                         case 3:
-                            message.Info = $"Уровень исследования добычи повысился.";
+                            message.Info = $"Исследована добыча 3 уровня. С этого момента эффективность добычи увеличена еще на 25%.";
                             break;
                     }
                     break;
             }
 
-            City._CityMessenger.SetMessage(message, false);
+            City._CityMessenger.AddMessage(message);
         }
-    }
-
-    private float GetGoal(float score)
-    {
-        if (score >= 4000)
-        {
-            return -1;
-        }
-        else if (score >= 2000)
-        {
-            return 4000;
-        }
-        else if (score >= 1000)
-        {
-            return 2000;
-        }
-        else
-        {
-            return 1000;
-        }
-    }
-
-    public void LabolatoryRetarget(Laboratory laboratory)
-    {
-        laboratory.SetRequiredSkill(GetResearchGoal(laboratory._Target));
 
         if (OnReseatchUpdate != null)
         {

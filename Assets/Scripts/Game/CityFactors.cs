@@ -1,188 +1,191 @@
+using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using static CityFactors;
 
 public class CityFactors : MonoBehaviour
 {
     [SerializeField] private CityTime CityTime;
-    [SerializeField] private Factor[] SatisfactionFactors;
 
-    private CityMessenger.CityMessage LowSatisfaction = new CityMessenger.CityMessage("<color=red>НАРОД НЕДОВОЛЕН!</color>", "", true);
-    private CityMessenger.CityMessage LowHealth = new CityMessenger.CityMessage("<color=red>НАРОД БОЛЕН!</color>", "", true);
-    [SerializeField] private int GameOverDaysLeft = 3;
-    [SerializeField] private bool Encounting = false;
+    [SerializeField] private GameEnder GameEnder;
 
-    private float CitySatisfaction = 0;
-    private float SatisfactionFactor = 0;
+    [SerializeField] private GameObject DangerOutline;
+
+    [SerializeField] private GameObject StressMessage;
+    [SerializeField] private GameObject StressFail;
+    [SerializeField] private GameObject BearsFrozed;
+
+    [SerializeField] private Musician.MusicOrder Music;
+
+    [SerializeField] private TimeEditor TimeEditor;
+    [SerializeField] private int EndTime;
+    [SerializeField] private bool StressTest;
+
+    public int _EndTime => EndTime;
+    public bool _StressTest => StressTest;
+    public bool _GameEnded => GameEnder._GameEnd;
 
     public string _SaveInfo
     {
         get
         {
-            string info = "S$fn(";
-
-            foreach(Factor factor in SatisfactionFactors)
-            {
-                info += $"{factor._SaveInfo}|";
-            }
-            if (info.EndsWith("|"))
-            {
-                info = info.Remove(info.Length - 1);
-            }
-            info += ")";
-
-            return info + $"Days({GameOverDaysLeft})Enc({Encounting.GetHashCode()})";
+            return $"Test({StressTest.GetHashCode()})Time({EndTime})";
         }
         set
         {
-            if(value == null || value == "")
+            Dictionary<string, string> parameters = StaticTools.GetParameters(value);
+
+            StressTest = parameters["Test"] == "1";
+            EndTime = StaticTools.StringToInt(parameters["Time"]);
+
+            if (StressTest)
             {
-                return;
+                DangerOutline.SetActive(true);
+            }
+        }
+    }
+
+    public void HourPassed()
+    {
+        float stress = 0;
+        float health = 0;
+        bool deesposobni = false;
+        int saturated = City._Foodstream._Saturation >= 1 ? 1 : (City._Foodstream._Saturation <= 0 ? -1 : 0);
+        foreach (Bear bear in City._DataBase._Bears)
+        {
+            bear._Stress += bear._StressDelta * CityTime._DaySection;
+            stress += bear._Stress;
+            health += bear._Health;
+
+            if (!deesposobni)
+            {
+                deesposobni = !bear._Nedeesposoben;
             }
 
-            string satisfaction = StaticTools.GetParameter(value, "S$fn");
-
-            string[] token = satisfaction.Split('|');
-
-            if (token[0] != "")
+            if (bear._Sally == null)
             {
-                SatisfactionFactors = new Factor[token.Length];
-                for (int i = 0; i < token.Length; i++)
+                if (saturated == -1)
                 {
-                    Factor factor = new Factor();
-                    factor._SaveInfo = token[i];
-                    SatisfactionFactors[i] = factor;
+                    bear._Health -= Random.Range(0, 100f) < 10 ? 1 : 0;
+                }
+                if (saturated == 1 && bear._HeatLevel > 0 && bear._Health < 5)
+                {
+                    bear._Health += Random.Range(0, 100f) < 10 ? 1 : 0;
                 }
             }
 
-            Encounting = StaticTools.GetParameter(value, "Enc") == "1";
-            if (Encounting)
+            if (bear._HeatLevel < -2)
             {
-                GameOverDaysLeft = StaticTools.StringToInt(StaticTools.GetParameter(value, "Days"));
-                LowSatisfaction.Info = $"<color=red>Уровень удовлетворённости медведей в городе существенно низок, поэтому медведи готовятся согнать вас с поста мэра.\nВам необходимо в течение {GameOverDaysLeft} дней повысить удовлетворенность медведей до 50% и более.</color>";
-                City._CityMessenger.SetMessage(LowSatisfaction, false);
+                bear._Health -= Random.Range(0, 100f) < 15 ? 1 : 0;
+            }
+            else if(bear._HeatLevel < 0)
+            {
+                bear._Health -= Random.Range(0, 100f) < 5 ? 1 : 0;
             }
 
-            UpdateSatisfaction();
-        }
-    }
-    public  Factor[] _SatisfactionFactors => SatisfactionFactors;
-    public float _CitySatisfaction => CitySatisfaction;
-    public int _SatisfactionFactor => Mathf.RoundToInt(SatisfactionFactor);
-
-    private void Start()
-    {
-        City._DataBase.OnBearChanges += UpdateSatisfaction;
-
-        UpdateSatisfaction();
-    }
-    
-    public void UpdateFactors()
-    {
-        foreach (Factor factor in SatisfactionFactors)
-        {
-            factor.Duraction--;
-        }
-
-        SatisfactionFactor = 0;
-        Factor[] satisfactionFactors = new Factor[0];
-        for (int i = 0; i < SatisfactionFactors.Length; i++)
-        {
-            if (SatisfactionFactors[i].Duraction > 0)
+            if(bear is SuperBear)
             {
-                satisfactionFactors = StaticTools.ExpandMassive(satisfactionFactors, SatisfactionFactors[i]);
-                SatisfactionFactor += SatisfactionFactors[i].Value;
+                bear._Health += Random.Range(0, 100f) < (bear as SuperBear)._Regeneration ? 1 : 0;
+            }
+
+            for(int i = 0; i < bear._Effects.Length; i++)
+            {
+                bear._Effects[i] = Mathf.Max(0, bear._Effects[i] - 1);
+
+                if(i == 3 && bear._Effects[i] == 0 && City._Storage._Antisleep > 0)
+                {
+                    bear._Effects[i] = UnityEngine.Random.Range(120, 150);
+                    City._CityStatistics.AddStatistic(new CityStatistics.Statistic($"Выдан {bear._Name}", (int)(City._Time._WorldTime / 60), -1, CityStorage.ResourceType.Antisleep));
+                    City._Storage._Antisleep--;
+                }
             }
         }
 
-        SatisfactionFactors = satisfactionFactors;
-
-        float health = 0;
-        foreach(Bear bear in City._DataBase._Bears)
+        if(City._DataBase._Bears.Length == 0)
         {
-            health += bear._Health;
+            return;
         }
-        health /= City._DataBase._Bears.Length;
 
-        if(health < 3)
+        if(!deesposobni)
         {
-            City._CityMessenger.SetMessage(LowHealth, false);
-            LowHealth.Info = $"<color=red>Средний показатель здоровья медведей равен {health}, это очень плохо. Если вы ничего не предпримете, то все медведи обречены на криогенное состояние. Тогда ваше капитанство прекратится.</color>";
-   
-            if(Mathf.Abs(health - 1) < 0.25f)
+            BearsFrozed.SetActive(true);
+            DangerOutline.SetActive(true);
+            FindObjectOfType<Musician>().SetMusic(Music, false);
+            TimeEditor._Paused = true;
+            GameEnder._GameEnd = true;
+
+            PlayerPrefs.SetInt("PlayerWinrate", PlayerPrefs.GetInt("PlayerWinrate") - 1);
+            PlayerPrefs.Save();
+            return;
+        }
+
+        stress /= City._DataBase._Bears.Length;
+        if (StressTest)
+        {
+            if(stress <= 50f)
             {
-                SceneManager.LoadScene(4);
-                return;
+                FindObjectOfType<Musician>().SetMusic(Music, true);
+                StressMessage.SetActive(false);
+                StressTest = false;
+                City._CityMessenger.AddMessage(new CityMessenger.CityMessage("Ситуация стабилизирована", "Стресс медведей спал до определённой нормы, впредь будьте осторожнее."));
+            }
+            EndTime--;
+            if(EndTime <= 0)
+            {
+                StressFail.SetActive(true);
+                GameEnder._GameEnd = true;
+                TimeEditor._Paused = true;
+
+                PlayerPrefs.SetInt("PlayerWinrate", PlayerPrefs.GetInt("PlayerWinrate") - 1);
+                PlayerPrefs.Save();
             }
         }
         else
         {
-            City._CityMessenger.SetMessage(LowHealth, true);
-        }
-
-        UpdateSatisfaction();
-
-        if (Encounting)
-        {
-            if(CitySatisfaction >= 0.5f)
+            if (stress > 90 && Random.Range(0, 100) < 80)
             {
-                Encounting = false;
-
-                City._CityMessenger.SetMessage(LowSatisfaction, true);
-
-                City._CityMessenger.SetMessage(new CityMessenger.CityMessage("Кризис миновал", "Вы смогли стабилизировать ситуацию, впредь будьте аккуратней."), false);
+                StressMessage.SetActive(true);
+                DangerOutline.SetActive(true);
+                FindObjectOfType<Musician>().SetMusic(Music, false);
+                TimeEditor._Paused = true;
             }
-            else
-            {
-                GameOverDaysLeft--;
-
-                if(GameOverDaysLeft < 1)
-                {
-                    SceneManager.LoadScene(4);
-                    return;
-                }
-
-                LowSatisfaction.Info = $"<color=red>Уровень удовлетворённости медведей в городе существенно низок, поэтому медведи готовятся согнать вас с поста капитана.\nВам необходимо в течение {GameOverDaysLeft} дней повысить удовлетворенность медведей до 50% и более.</color>";
-            }
-        }
-        else if(CitySatisfaction < 0.35f && (CitySatisfaction == 0 || Random.Range(0, 100) < 60))
-        {
-            GameOverDaysLeft = 3;
-            Encounting = true;
-
-            LowSatisfaction.Info = $"<color=red>Уровень удовлетворённости медведей в городе существенно низок, поэтому медведи готовятся согнать вас с поста капитана.\nВам необходимо в течение {GameOverDaysLeft} дней повысить удовлетворенность медведей до 50% и более.</color>";
-            City._CityMessenger.SetMessage(LowSatisfaction, false);
         }
     }
 
-    public void UpdateSatisfaction()
+    public void StartStressTest(bool state)
     {
-        CitySatisfaction = 0;
-        foreach(Bear bear in City._DataBase._Bears)
+        StressMessage.SetActive(false);
+        if (state)
         {
-            CitySatisfaction += bear._Satisfaction;
+            StressTest = true;
+            EndTime = 50;
+            City._CityMessenger.AddMessage(new CityMessenger.CityMessage("Испытание", "Вы пообещали понизить сресс медведей, для этого вы должны проявить себя в самом лучшем виде.\nУ вас есть 50 часов, чтобы средний стресс медведей был ниже 50%."));
         }
-
-        CitySatisfaction /= City._DataBase._Bears.Length * 10;
-
-        if(CitySatisfaction < 0.35f)
+        else
         {
-
+            End();
         }
     }
 
-    public float GetPotencialSatisfaction()
+    public void Defeat()
     {
-        float value = 0;
-        float saturation = City._Foodstream._Potencial[2];
-        foreach (Bear bear in City._DataBase._Bears)
-        {
-            value += bear.GetSatisfaction(bear._Health, saturation);
-        }
+        BearsFrozed.SetActive(true);
+        DangerOutline.SetActive(true);
+        FindObjectOfType<Musician>().SetMusic(Music, false);
+        TimeEditor._Paused = true;
+        GameEnder._GameEnd = true;
 
-        value /= City._DataBase._Bears.Length * 10;
+        PlayerPrefs.SetInt("PlayerWinrate", PlayerPrefs.GetInt("PlayerWinrate") - 1);
+        PlayerPrefs.Save();
+    }
 
-        return value;
+    public void End()
+    {
+        PlayerPrefs.SetInt("Exposition", 0);
+        PlayerPrefs.Save();
+
+        File.Delete(Path.Combine(Application.persistentDataPath, "LocalSave.json"));
+        GameEnder.End(4);
     }
 
     [System.Serializable]
@@ -190,14 +193,13 @@ public class CityFactors : MonoBehaviour
     {
         public string Name;
         public float Value;
-        public int Duraction;
         public bool Coefficient = false;
 
         public string _SaveInfo
         {
             get
             {
-                return $"{Name};{Value};{Duraction}";
+                return $"{Name};{Value}";
             }
             set
             {
@@ -205,17 +207,15 @@ public class CityFactors : MonoBehaviour
 
                 Name = variables[0];
                 Value = float.Parse(variables[1]);
-                Duraction = int.Parse(variables[2]);
             }
         }
 
         public Factor() { }
 
-        public Factor(string name, float value, int duraction, bool coefficient = false)
+        public Factor(string name, float value, bool coefficient = false)
         {
             Name = name;
             Value = value;
-            Duraction = duraction;
             Coefficient = coefficient;  
         }
 
@@ -223,10 +223,10 @@ public class CityFactors : MonoBehaviour
         {
             if (Coefficient)
             {
-                return $"{Name}: {Value}x{(Duraction != -1 ? $" (длительность {Duraction} дней)" : "")}";
+                return $"{Name}: {Value}x";
             }
 
-            return $"{Name}: {(Value > 0 ? "+" : "")}{Value}{( Duraction != -1 ? $" (длительность {Duraction} дней)" : "")}";
+            return $"{Name}: {(Value > 0 ? "+" : "")}{Value}";
         }
     }
 }

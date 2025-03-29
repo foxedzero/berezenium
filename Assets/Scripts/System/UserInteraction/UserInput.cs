@@ -41,15 +41,15 @@ public class UserInput : UserAction
     {
         ToReturn = toReturn;
 
-        float width = 250;
+        float width = 300;
 
         Label.text = label;
 
         if (label.Length > 0)
         {
-            if (Label.preferredWidth + 50 > width)
+            if (Label.preferredWidth + 70 > width)
             {
-                width = Label.preferredWidth + 50;
+                width = Label.preferredWidth + 70;
             }
         }
 
@@ -57,18 +57,18 @@ public class UserInput : UserAction
         {
             if (label.Length > 0)
             {
-                RectTransform.sizeDelta = new Vector2(width, 80);
+                RectTransform.sizeDelta = new Vector2(width, 110);
             }
             else
             {
-                RectTransform.sizeDelta = new Vector2(width, 50);
+                RectTransform.sizeDelta = new Vector2(width, 80);
             }
 
             Field.ActivateInputField();
         }
         else
         {
-            RectTransform.sizeDelta = new Vector2(width, 50);
+            RectTransform.sizeDelta = new Vector2(width, 80);
 
             Field.gameObject.SetActive(false);
         }
@@ -104,7 +104,7 @@ public class UserInput : UserAction
 
     public void TextChanged()
     {
-        float width = Field.preferredWidth + 50;
+        float width = Field.preferredWidth + 70;
 
         if (width > StandartWidth)
         {
