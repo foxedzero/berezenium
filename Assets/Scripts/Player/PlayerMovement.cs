@@ -1,43 +1,68 @@
 
+using System.Drawing;
 using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
 {
     [SerializeField] private CharacterController Controller;
     [SerializeField] private LayerMask LayerMask;
-    [SerializeField] private Transform Camera;
+    [SerializeField] private Transform CameraRotator;
     [SerializeField] private Settings Settings;
     [SerializeField] private Animator Animator;
 
+    [SerializeField] private PlayerVisual PlayerVisual;
+
+    [SerializeField] private float Height;
+
     [SerializeField] private Vector3 Rotation = Vector3.zero;
-    [SerializeField] private float Speed;
     [SerializeField] private float Sensitivity;
 
-    [SerializeField] private AudioSource WalkSound;
-    [SerializeField] private AudioClip[] WalkSounds;
+    [SerializeField] private bool InCapsule;
 
-    private float CameraShake = 0;
-    private float WalkNoise = 0;
+    private float Border = 0;
+
     private float Fall = 0;
 
-    public float _Speed
+    public Vector3 _Rotation
     {
         get
         {
-            return Speed;
+            return Rotation;
         }
         set
         {
-            Speed = value;
+            Rotation = value;
+        }
+    }
+    public bool _InCapsule
+    {
+        get
+        {
+            return InCapsule;
+        }
+        set
+        {
+            InCapsule = value;
         }
     }
 
     private void Start()
     {
-        Rotation = transform.localEulerAngles;
-
         Settings.OnChanges += UpdateValues;
         UpdateValues();
+
+        switch (SaveManager._Instance._SaveData.MapSize)
+        {
+            case 0:
+                Border = 150;
+                break;
+            case 1:
+                Border = 175;
+                break;
+            case 2:
+                Border = 200;
+                break;
+        }
     }
 
     private void OnDisable()
@@ -60,7 +85,37 @@ public class PlayerMovement : MonoBehaviour
         }
 
         Rotation += Sensitivity * new Vector3(-Input.GetAxis("Mouse Y"), Input.GetAxis("Mouse X"), 0);
-        NormalizeRotation();
+        Rotation.x = NormalizeRotation(Rotation.x);
+        Rotation.y = NormalizeRotation(Rotation.y);
+
+        if (InCapsule)
+        {
+            if (Rotation.x < 270 && Rotation.x > 0)
+            {
+                if (Rotation.x > 135)
+                {
+                    Rotation.x = 270;
+                }
+                else
+                {
+                    Rotation.x = 0;
+                }
+            }
+            if (Rotation.y < 270 && Rotation.y > 90)
+            {
+                if (Rotation.y > 135)
+                {
+                    Rotation.y = 270;
+                }
+                else
+                {
+                    Rotation.y = 90;
+                }
+            }
+
+            CameraRotator.eulerAngles = new Vector3(Rotation.x, Rotation.y, Rotation.z);
+            return;
+        }
 
         if (Rotation.x < 270 && Rotation.x > 90)
         {
@@ -74,100 +129,78 @@ public class PlayerMovement : MonoBehaviour
             }
         }
 
-        transform.localEulerAngles = new Vector3(0, Rotation.y, 0);
-        Camera.localEulerAngles = new Vector3(Rotation.x, 0, Rotation.z);
-
-        RaycastHit raycast;
-        if (Fall > 0)
+        Fall += Time.unscaledDeltaTime * 9.81f;
+        if (Physics.Raycast(transform.position + Vector3.up * 0.01f, Vector2.down, out RaycastHit raycast, Fall * Time.unscaledDeltaTime + 0.02f, LayerMask))
         {
-            if (Physics.Raycast(transform.position, Vector2.down, out raycast, Mathf.Max(0.1f, Time.deltaTime * Mathf.Max(Fall, 0.1f)), LayerMask))
-            {
-                Fall = 0;
-                transform.position = raycast.point;
-            }
-            else
-            {
-                if (Fall < 15)
-                {
-                    Fall += Time.deltaTime * 10;
-                }
+            Fall = 0;
+        }
+        Controller.Move(Vector3.down * Time.unscaledDeltaTime * Fall);
 
-                transform.position -= Vector3.up * Fall * Time.deltaTime;
-            }
-        }
-        else
-        {
-            if (!Physics.Raycast(transform.position, Vector2.down, out raycast, 0.1f, LayerMask))
-            {
-                Fall += Time.deltaTime;
-            }
-        }
-        Vector3 direction = Vector3.zero;
-        direction += transform.forward * InputManager.GetAxis(InputManager.AxisEnum.Vertical);
-        direction += transform.right * InputManager.GetAxis(InputManager.AxisEnum.Horizontal);
-   
-        if (direction.x != 0 || direction.z != 0)
+        float y = InputManager.GetAxis(InputManager.AxisEnum.Vertical);
+        float x = InputManager.GetAxis(InputManager.AxisEnum.Horizontal);
+        if(x != 0 || y != 0)
         {
             Animator.SetBool("isWalking", true);
+            transform.localEulerAngles = new Vector3(0, Rotation.y, 0);
 
-            CameraShake = (CameraShake + Time.unscaledDeltaTime * Speed * 90) % 360;
-            WalkNoise += Time.unscaledDeltaTime * Speed;
-            if (WalkNoise > 4)
+            Vector3 direction = Vector3.zero;
+            direction += transform.forward * y;
+            direction += transform.right * x;
+            direction = direction.normalized;
+
+            if (Physics.Raycast(transform.position, direction, out RaycastHit hit, direction.magnitude, LayerMask))
             {
-                WalkNoise -= 4;
-                
-                RaycastHit hit;
-                if (Physics.Raycast(transform.position + Vector3.up * 0.25f, Vector3.down, out hit, 1))
-                {
-                    Ground ground = hit.transform.GetComponent<Ground>();
-                    if (ground != null)
-                    {
-                        int sound = 0;
 
-                        switch (ground._Material)
-                        {
-                            case Ground.GroundMaterial.Wood:
-                                sound = Random.Range(0, 2);
-                                break;
-                            case Ground.GroundMaterial.Metal:
-                                sound = Random.Range(2, 4);
-                                break;
-                            case Ground.GroundMaterial.Beton:
-                                sound = Random.Range(4, 6);
-                                break;
-                            case Ground.GroundMaterial.Snow:
-                                sound = Random.Range(6, 8);
-                                break;
-                        }
-
-                        WalkSound.clip = WalkSounds[sound];
-                        WalkSound.pitch = Random.Range(0.9f, 1.1f);
-                        WalkSound.Play();
-                    }
-                }
+            }
+            else if (Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out hit, 0.2f, LayerMask))
+            {
+                direction -= Vector3.Dot(direction, hit.normal) * hit.normal;
             }
 
-            Camera.transform.localPosition = new Vector3(0, 1.75f + Mathf.Sin(CameraShake * Mathf.Deg2Rad) * 0.05f, 0);
-          //  Rotation.z = Mathf.Sin(CameraShake * Mathf.Deg2Rad) * 1f;
-
-            Controller.Move(direction.normalized * Time.unscaledDeltaTime * Speed);
+            Controller.Move(direction * Time.unscaledDeltaTime * GlobalVariables._PlayerSpeed);
+       
+            transform.position = new Vector3(Mathf.Clamp(transform.position.x, -Border / 2, Border / 2), Mathf.Clamp(transform.position.y, -100, 100), Mathf.Clamp(transform.position.z, -Border / 2, Border / 2));
         }
         else
         {
-
             Animator.SetBool("isWalking", false);
+
+            float yRot = transform.localEulerAngles.y;
+            if(yRot - Rotation.y > 180)
+            {
+                yRot -= 360;
+            }
+            if (Rotation.y - yRot > 180)
+            {
+                yRot += 360;
+            }
+            if (Mathf.Abs(Rotation.y - yRot) > 30)
+            {
+                if (Rotation.y > yRot)
+                {
+                    yRot = Rotation.y - 30;
+                }
+                else
+                {
+                    yRot = Rotation.y + 30;
+                }
+                yRot = NormalizeRotation(yRot);
+            }
+            transform.localEulerAngles = new Vector3(0, yRot, 0);
         }
 
-        transform.position = new Vector3(Mathf.Clamp(transform.position.x, -250, 250), Mathf.Clamp(transform.position.y, 0, 100), Mathf.Clamp(transform.position.z, -250, 250));
+        CameraRotator.eulerAngles = new Vector3(Rotation.x, Rotation.y, Rotation.z);
     }
 
-    private void NormalizeRotation()
+    private float NormalizeRotation(float value)
     {
-        Rotation.x %= 360;
-        if (Rotation.x < 0)
+        value %= 360;
+        if (value < 0)
         {
-            Rotation.x += 360;
+            value += 360;
         }
-        Rotation.x %= 360;
+        value %= 360;
+
+        return value;
     }
 }

@@ -6,58 +6,83 @@ using static CityResearch;
 public class FacilityWindow : DefaultWindow
 {
     [SerializeField] private GameObject ParameterPrefab;
-    [SerializeField] private GameObject BearHolderPrefab;
-    [SerializeField] private Image Preview;
+    [SerializeField] private GameObject BearSlotPrefab;
     [SerializeField] private RectTransform RobotButton;
-    [SerializeField] private RectTransform ResearchButton;
-    [SerializeField] private RectTransform EnabledButton;
-    [SerializeField] private RectTransform HeaterButton;
+    [SerializeField] private RectTransform CyberBeeButton;
+    [SerializeField] private RectTransform AddButton;
+    [SerializeField] private Image Icon;
 
-    [SerializeField] private Text Name;
-    [SerializeField] private Text Category;
-    [SerializeField] private Text Address;
-    [SerializeField] private Text Coordinates;
-    [SerializeField] private Text RobotsInfo;
-    [SerializeField] private Text ResearchInfo;
-    [SerializeField] private Text EnabledInfo;
-    [SerializeField] private Text HeaterInfo;
+    [SerializeField] private RectTransform AutoAssignButton;
+    [SerializeField] private RectTransform UnassignButton;
+    [SerializeField] private RectTransform HeaterButton;
+    [SerializeField] private RectTransform ResearchButton;
+    [SerializeField] private RectTransform ConsumeLimitButton;
+    [SerializeField] private RectTransform UseRobotsButton;
+    [SerializeField] private RectTransform ChangeProduceButton;
+    [SerializeField] private RectTransform ChangeHeatLevelButton;
+    [SerializeField] private RectTransform FlyDurandalButton;
 
     [SerializeField] private Text[] ParameterInfos;
     [SerializeField] private Tipper[] ParameterTips;
 
     [SerializeField] private Text Describtion;
 
-    [SerializeField] private IlusionHolders IlusionHolders;
-    [SerializeField] private Text Holders;
-    [SerializeField] private RectTransform HolderContent;
+    [SerializeField] private RectTransform PersonalContent;
+    private BearSlot[] BearSlots = new BearSlot[0];
+    [SerializeField] private RectTransform ParameterContent;
+    [SerializeField] private Text PersonalLabel;
 
-    [SerializeField] private RectTransform Content;
-    [SerializeField] private Text AssignedBearsLabel;
     [SerializeField] private Facility Facility;
 
     private Bear SelectedBear = null;
     private int[] Configuration = new int[0];
-    //0 - Спец.   1 - Навык   2 - Электропотр.   3 - Эффективность
-    //4 - вместительность жилья   5 - бонус жилья   6 - хладоустойчивость
-    //7 - коминал электричества
-    //8 - электроёмкость
-    //9 - номинал еды
-    //10 - хранение еды
-    //11 - объем работы строительства
-    //12 - номинал ресов  13 - осталось ресов 17 - тип ресурсов
-    //14 - количество роботов
-    //15 - номинал роботов
-    //16 - потребление ресов
-    //18 - уровень лечения 19 - количество пациентов
-    //20 - прогресс разведки
-    //21 - очки исследования
+    //0 - Спец. 
+    //1 - Эффективность
+    //2 - Электропот
+    //3 - хладостойк.
+    //4 - коэф уставания
+    //5 - уменьш. стреса
+    //6 - электроёмкость
+    //7 - режим работы с роботами или без
+    //8 - произв ресурс
+    //9 - итог работы
+    //10 - осталось работы
+    //11 - требуем ресурс
+    //12 - Лимит топлива
+    //13 - мощность лаборатории
+    //14 - шанс лечения
+    //15 - оставшееся ресурсы
+    //16 - требуемая работа
+    //17 - количество роботов
+    //18 - отопитель
+    //19 - обогреватель
 
-    public override string _Label => $"окно информации о \"{Facility._ConstructInfo.Name}\""; 
+    public override string _Label
+    {
+        get
+        {
+            if(Facility == null)
+            {
+                return "";
+            }
+
+            if(Facility is ConstructionProject)
+            {
+                return $"Проект \"{(Facility as ConstructionProject)._Construction.Name}\" #{StaticTools.IndexOf(City._DataBase._Facilities, Facility)}";
+            }
+            else
+            {
+                return $"{Facility._ConstructInfo.Name} #{StaticTools.IndexOf(City._DataBase._Facilities, Facility)}";
+            }
+        }
+    }
 
     public Facility _Facility => Facility;
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
+        base.OnDestroy();
+
         if(Facility != null)
         {
             Facility.OnSmthChange -= UpdateInfo;
@@ -75,59 +100,177 @@ public class FacilityWindow : DefaultWindow
 
         Facility = facility;
 
+        AutoAssignButton.gameObject.SetActive(true);
+        UnassignButton.gameObject.SetActive(true);
+        HeaterButton.gameObject.SetActive(false);
+        ResearchButton.gameObject.SetActive(false);
+        ConsumeLimitButton.gameObject.SetActive(false);
+        UseRobotsButton.gameObject.SetActive(false);
+        ChangeProduceButton.gameObject.SetActive(false);
+        ChangeHeatLevelButton.gameObject.SetActive(false);
+        FlyDurandalButton.gameObject.SetActive(false);
+
+        foreach (Window window in Lister._Windows)
+        {
+            if (window is FacilityWindow && this != window)
+            {
+                if ((window as FacilityWindow).Facility == Facility)
+                {
+                    window.Close();
+                    break;
+                }
+            }
+        }
+
         Facility.OnSmthChange += UpdateInfo;
         Facility.OnFacilityDestroy += Close;
-
-        IlusionHolders.SetInfo(null, Click);
 
         Configuration = new int[0] {};
         if(facility is Home)
         {
-            Configuration = new int[] {2, 4, 5, 6};
+            Configuration = new int[] {2, 3, 4, 5};
+
+            if (City._Research.GetResearchLevel(ResearchType.Cold) >= 1)
+            {
+                Configuration = StaticTools.ExpandMassive(Configuration, 19);
+            }
+
+            HeaterButton.gameObject.SetActive(City._Research.GetResearchLevel(ResearchType.Cold) >= 1);
         }
         else if(facility is EnergyProcuder)
         {
-            Configuration = new int[] {0, 1, 3, 7, 16};
+            Configuration = new int[] {0, 1, 3, 4, 6, 9, 11, 12, 16};
+
+            if(City._Research.GetResearchLevel(ResearchType.Cold) >= 2)
+            {
+                Configuration = StaticTools.ExpandMassive(Configuration, 18);
+            }
+
+            if (City._Research.GetResearchLevel(ResearchType.Cold) >= 1)
+            {
+                Configuration = StaticTools.ExpandMassive(Configuration, 19);
+            }
+
+            ConsumeLimitButton.gameObject.SetActive(true);
+            HeaterButton.gameObject.SetActive(City._Research.GetResearchLevel(ResearchType.Cold) >= 1);
         }
         else if(facility is Accumulator)
         {
-            Configuration = new int[] {8};
+            Configuration = new int[] {6};
+            AutoAssignButton.gameObject.SetActive(false);
+            UnassignButton.gameObject.SetActive(false);
+        }
+        else if (facility is OutHeater)
+        {
+            Configuration = new int[] { 11, 12 };
+            AutoAssignButton.gameObject.SetActive(false);
+            UnassignButton.gameObject.SetActive(false);
+            ChangeHeatLevelButton.gameObject.SetActive(true);
+        }
+        else if (facility is CyberPaseka)
+        {
+            Configuration = new int[] { 0, 1, 2, 3, 4, 9, 16, 17 };
+
+            if (City._Research.GetResearchLevel(ResearchType.Cold) >= 1)
+            {
+                Configuration = StaticTools.ExpandMassive(Configuration, 19);
+            }
+
+            HeaterButton.gameObject.SetActive(City._Research.GetResearchLevel(ResearchType.Cold) >= 1);
         }
         else if (facility is FoodProducer)
         {
-            Configuration = new int[] { 0, 1, 2, 3, 6, 9};
-        }
-        else if(facility is FoodStorage)
-        {
-            Configuration = new int[] {10};
+            Configuration = new int[] { 0, 1, 2, 3, 4, 9};
+
+            if (City._Research.GetResearchLevel(ResearchType.Cold) >= 1)
+            {
+                Configuration = StaticTools.ExpandMassive(Configuration, 19);
+            }
+
+            HeaterButton.gameObject.SetActive(City._Research.GetResearchLevel(ResearchType.Cold) >= 1);
         }
         else if(facility is ConstructionProject)
         {
-            Configuration = new int[] { 0, 1, 2, 3, 6, 11};
+            Configuration = new int[] { 0, 1, 2, 3, 4, 10};
+
+            if (City._Research.GetResearchLevel(ResearchType.Cold) >= 1)
+            {
+                Configuration = StaticTools.ExpandMassive(Configuration, 19);
+            }
+
+            HeaterButton.gameObject.SetActive(City._Research.GetResearchLevel(ResearchType.Cold) >= 1);
         }
-        else if (facility is ExsaustProducer)
+        else if(facility is Assimilator)
         {
-            Configuration = new int[] { 0, 1, 2, 3, 6, 17, 12, 13, 14 };
+            Configuration = new int[] { 0, 1, 2, 3, 4, 7, 8, 9, 17, 16 };
+
+            if (City._Research.GetResearchLevel(ResearchType.Cold) >= 1)
+            {
+                Configuration = StaticTools.ExpandMassive(Configuration, 19);
+            }
+
+            UseRobotsButton.gameObject.SetActive(true);
+            HeaterButton.gameObject.SetActive(City._Research.GetResearchLevel(ResearchType.Cold) >= 1);
         }
-        else if(facility is Producer)
+        else if (facility is Factory)
         {
-            Configuration = new int[] {0, 1, 2, 3, 6, 17, 12, 14, 16};
-        }
-        else if (facility is RobotFactory)
-        {
-            Configuration = new int[] { 0, 1, 2, 3, 6, 15, 16 };
+            Configuration = new int[] { 0, 1, 2, 3, 4, 8, 10, 11 };
+
+            if (City._Research.GetResearchLevel(ResearchType.Cold) >= 1)
+            {
+                Configuration = StaticTools.ExpandMassive(Configuration, 19);
+            }
+
+            HeaterButton.gameObject.SetActive(City._Research.GetResearchLevel(ResearchType.Cold) >= 1);
+            ChangeProduceButton.gameObject.SetActive((facility as Factory)._MechFactory);
         }
         else if (facility is Laboratory)
         {
-            Configuration = new int[] { 0, 1, 2, 3, 6 , 21};
+            Configuration = new int[] { 0, 1, 2, 3, 4, 13, 15};
+
+            if (City._Research.GetResearchLevel(ResearchType.Cold) >= 1)
+            {
+                Configuration = StaticTools.ExpandMassive(Configuration, 19);
+            }
+
+            ResearchButton.gameObject.SetActive(true);
+            HeaterButton.gameObject.SetActive(City._Research.GetResearchLevel(ResearchType.Cold) >= 1);
         }
         else if (facility is MedFacility)
         {
-            Configuration = new int[] { 0, 1, 2, 3, 6, 18, 19};
+            Configuration = new int[] { 0, 1, 2, 3, 4,  10, 14};
+
+            if (City._Research.GetResearchLevel(ResearchType.Cold) >= 1)
+            {
+                Configuration = StaticTools.ExpandMassive(Configuration, 19);
+            }
+
+            HeaterButton.gameObject.SetActive(City._Research.GetResearchLevel(ResearchType.Cold) >= 1);
+        }
+        else if(facility is Farmacy)
+        {
+            Configuration = new int[] { 0, 1, 2, 3, 4, 8, 10, 11 };
+
+            if (City._Research.GetResearchLevel(ResearchType.Cold) >= 1)
+            {
+                Configuration = StaticTools.ExpandMassive(Configuration, 19);
+            }
+
+            HeaterButton.gameObject.SetActive(City._Research.GetResearchLevel(ResearchType.Cold) >= 1);
         }
         else if (facility is Finders)
         {
-            Configuration = new int[] { 0, 1, 2, 3, 6, 20};
+            Configuration = new int[] { 0, 1, 2, 3, 10};
+
+            if (City._Research.GetResearchLevel(ResearchType.Cold) >= 1)
+            {
+                Configuration = StaticTools.ExpandMassive(Configuration, 19);
+            }
+        }
+        else if (facility is Durandal)
+        {
+            Configuration = new int[] { 0, 3 };
+            FlyDurandalButton.gameObject.SetActive(true);
         }
 
         foreach (Text info in ParameterInfos)
@@ -135,306 +278,465 @@ public class FacilityWindow : DefaultWindow
             Destroy(info.gameObject);
         }
 
-        RobotButton.gameObject.SetActive(false);
         ParameterInfos = new Text[Configuration.Length];
         ParameterTips = new Tipper[Configuration.Length];
         for (int i = 0; i < Configuration.Length; i++)
         {
-            GameObject paramter = Instantiate(ParameterPrefab, Content);
+            GameObject paramter = Instantiate(ParameterPrefab, ParameterContent);
             ParameterInfos[i] = paramter.GetComponent<Text>();
             ParameterTips[i] = paramter.GetComponent<Tipper>();
 
-            paramter.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, -220 - 30 * i);
-
-            if (Configuration[i] == 14)
-            {
-                RobotButton.gameObject.SetActive(true);
-            }
+            paramter.GetComponent<RectTransform>().anchoredPosition = new Vector2(0,  -30 * i);
         }
+
+        float y = 182.5f;
+        if (AutoAssignButton.gameObject.activeSelf)
+        {
+            AutoAssignButton.anchoredPosition = new Vector2(90, y);
+            y -= 50;
+        }
+        if (UnassignButton.gameObject.activeSelf)
+        {
+            UnassignButton.anchoredPosition = new Vector2(90, y);
+            y -= 50;
+        }
+        if (HeaterButton.gameObject.activeSelf)
+        {
+            HeaterButton.anchoredPosition = new Vector2(90, y);
+            y -= 50;
+        }
+        if (ResearchButton.gameObject.activeSelf)
+        {
+            ResearchButton.anchoredPosition = new Vector2(90, y);
+            y -= 50;
+        }
+        if (ConsumeLimitButton.gameObject.activeSelf)
+        {
+            ConsumeLimitButton.anchoredPosition = new Vector2(90, y);
+            y -= 50;
+        }
+        if (UseRobotsButton.gameObject.activeSelf)
+        {
+            UseRobotsButton.anchoredPosition = new Vector2(90, y);
+            y -= 50;
+        }
+        if (ChangeProduceButton.gameObject.activeSelf)
+        {
+            ChangeProduceButton.anchoredPosition = new Vector2(90, y);
+            y -= 50;
+        }
+        if (ChangeHeatLevelButton.gameObject.activeSelf)
+        {
+            ChangeHeatLevelButton.anchoredPosition = new Vector2(90, y);
+            y -= 50;
+        }
+        if (FlyDurandalButton.gameObject.activeSelf)
+        {
+            FlyDurandalButton.anchoredPosition = new Vector2(90, y);
+            y -= 50;
+        }
+
+        ParameterContent.sizeDelta = new Vector2(0, 30 * Configuration.Length);
 
         UpdateInfo();
     }
 
     public void UpdateInfo()
     {
-        if(Facility == null)
+        if (Facility == null)
         {
             Destroy(gameObject);
             return;
         }
 
-
-        if(Facility is ConstructionProject)
+        if (Facility is ConstructionProject)
         {
-            Preview.sprite = (Facility as ConstructionProject)._Construction.Icon;
-            Name.text = $"проект \"{(Facility as ConstructionProject)._Construction.Name}\"";
-            Category.text = $"Тип: Проект постройки";
+            Icon.sprite = (Facility as ConstructionProject)._Construction.Icon;
         }
         else
         {
-            Preview.sprite = Facility._ConstructInfo.Icon;
-            Name.text = Facility._ConstructInfo.Name;
-            Category.text = $"Тип: {Facility._ConstructInfo.Category}";
+            Icon.sprite = Facility._ConstructInfo.Icon;
         }
 
-        Address.text = $"Номер: #{StaticTools.IndexOf(City._DataBase._Facilities, Facility)}";
-        Coordinates.text = $"Координаты: x{Facility.transform.position.x} z{Facility.transform.position.z}";
+        Label.text = _Label;
 
-        for(int i = 0; i < Configuration.Length; i++)
+        for (int i = 0; i < Configuration.Length; i++)
         {
             switch (Configuration[i])
             {
                 case 0:
                     ParameterInfos[i].text = $"Специальность: {Facility._RequiredKasta}";
-                    ParameterTips[i]._Info = $"Специализация медведя, который будет назначен здесь работать\r\n\r\nМедведь с иной специализацией работает в 4 раза хуже";
+                    ParameterTips[i]._Info = $"Специализация медведя, который будет назначен здесь работать\r\n\r\nМедведь с иной специализацией работает в два раза хуже";
                     break;
                 case 1:
                     {
-                        float summ = 0;
-                        foreach (Bear bear1 in Facility._AssignedBears)
-                        {
-                            summ += bear1._Skill;
-                        }
-                        ParameterInfos[i].text = $"Опыт: {summ}/{Facility._RequiredSkill}";
-
-                        string info = "Требуемый суммарный опыт всех рабочих для нормальной работы здания.\n\nМедведи:";
-                        foreach (Bear bear1 in Facility._AssignedBears)
-                        {
-                            info += $"\n{bear1._Name}  {bear1._Skill}";
-                        }
-
-                        ParameterTips[i]._Info = info;
-                    }
-                    break;
-                case 2:
-                    ParameterInfos[i].text = $"Потребление электричества: {Facility._EnergyConsume}";
-                    ParameterTips[i]._Info = $"Электричество, которе требуется для нормальной работы здания.\n\nМинимальный коэффициент от электричества: {Facility._MinimalEnergyCoefficiente}";
-                    break;
-                case 3:
-                    {
                         ParameterInfos[i].text = $"Эффективность: {(int)(Facility._Effectivity * 100)}%";
 
-                        string info = $"Эффективность здания, определяющая результат работы.\n\nФакторы:";
+                        string info = "Эффективность определяет результат работы здания.\nПодсчитывается как суммарная работа медведей, помноженная на факторы.\n\nМедведи:";
+                        foreach (Bear bear1 in Facility._AssignedBears)
+                        {
+                            info += $"\n{bear1._Name}  {(int)(bear1._Work * 100f)}%";
+                        }
+                        info += "\n\nФакторы:";
                         foreach (CityFactors.Factor factor in Facility.GetEffectivityFactors())
                         {
                             info += $"\n{factor}";
                         }
 
+                        info += $"\n\nИтоговое значение: {Facility._Effectivity}";
+
                         ParameterTips[i]._Info = info;
                     }
                     break;
+                case 2:
+                    ParameterInfos[i].text = $"Требуемое электричество: {Facility._EnergyConsume} ({Facility._BaseEnergyConsume}) ед/ч";
+                    ParameterTips[i]._Info = $"Электричество, которое требуется для нормальной работы здания.\n\nБазовое требуемое электричество: {Facility._BaseEnergyConsume}  ед/ч\nМинимальный коэффициент работы от электричества: {(int)(Facility._MinimalEnergyCoefficiente * 100)}%";
+                    break;
+                case 3:
+                    ParameterInfos[i].text = $"Хладостойкость: {Facility._ColdEndurance}";
+                    ParameterTips[i]._Info = $"Хладостойкость противостоит холоду. Уровень тепла медведя повышается на хладостойкость здания.{(Facility._CanBeHeated ? $"\n\nЭффект отопления: {Facility._Heated}" : "")}";
+                    break;
                 case 4:
-                    ParameterInfos[i].text = $"Вместительность жилья: {(Facility as Home)._MaxBearCount}";
-                    ParameterTips[i]._Info = $"Вместительность жилья определяет максимальное количество медведей, которых можно заселить.";
+                    if(Facility is Home)
+                    {
+                        ParameterInfos[i].text = $"Расслабление медведя: {-(int)(Facility._Tiring * 100 * CityTime._DaySection)} %/ч";
+                        ParameterTips[i]._Info = $"Усталость, которая будет уменьшаться у медведя с каждым часом отдыха.";
+                    }
+                    else
+                    {
+                        ParameterInfos[i].text = $"Уставание медведя: {(int)(Facility._Tiring * 100 * CityTime._DaySection)} %/ч";
+                        ParameterTips[i]._Info = $"Усталость, которая будет накапливаться у медведя с каждым часом работы.";
+                    }
                     break;
                 case 5:
-                    ParameterInfos[i].text = $"Бонус жилья: {(Facility as Home)._SatisfactionBonus}";
-                    ParameterTips[i]._Info = $"Бонус к удовлетворенности медведя, проживающего в данном доме.";
+                    ParameterInfos[i].text = $"Уменьшение стресса: {(int)((Facility as Home)._StressDown * 10) / 10f} %/ч";
+                    ParameterTips[i]._Info = $"Понижение стресса медведя, при нахождении его в здании.\nБазовое понижение: {(int)((Facility as Home)._BaseStressDown * 10)/10f}%";
                     break;
                 case 6:
-                    ParameterInfos[i].text = $"Хладостойкость: {Facility._ColdEndurance}";
-                    ParameterTips[i]._Info = $"Хладостойкость влияет на терпимость к внешнему холоду.\nЧем холод больше стойкости, тем выше риск заболеть медведю и выше его недовольство.";
+                    if(Facility is Accumulator)
+                    {
+                        ParameterInfos[i].text = $"Электроёмкость: {(Facility as Accumulator)._Capacity}";
+                        ParameterTips[i]._Info = $"Количество электричества, которое сможет сохранить аккумулятор.";
+                    }
+                    else if(Facility is EnergyProcuder)
+                    {
+                        ParameterInfos[i].text = $"Электроёмкость: {(Facility as EnergyProcuder)._EnergyCapacity}";
+                        ParameterTips[i]._Info = $"Количество электричества, которое сможет сохранить электростанция.\nКонечно, аккумуляторы смогут сохранить больше.";
+                    }
                     break;
                 case 7:
-                    ParameterInfos[i].text = $"Базовая электровыработки: {(Facility as EnergyProcuder)._BaseProduce}";
-                    ParameterTips[i]._Info = $"Выработка электричества при нормальных условиях.\n\nТекущая потенциальная выработка: {(Facility as EnergyProcuder).GetPotencialEffectivity() * (Facility as EnergyProcuder)._BaseProduce}";
+                    ParameterInfos[i].text = $"Режим работы: {((Facility as Assimilator)._UseRobots ? "Роботизированный" : "Ручной")}";
+                    ParameterTips[i]._Info = $"Метод работы здания. В роботизированном режиме для работы потребуются роботы и программисты. В ручном работать может каждый медведь.";
                     break;
                 case 8:
-                    ParameterInfos[i].text = $"Электроёмкость: {(Facility as Accumulator)._Capacity}";
-                    ParameterTips[i]._Info = $"Количество электричества, которое сможет сохранить аккумулятор.";
+                    if(Facility is Assimilator)
+                    {
+                        ParameterInfos[i].text = $"Добываемый ресурс: {CityStorage.ResourceName((Facility as Assimilator)._ConstructInfo.MiningResource)}";
+                        ParameterTips[i]._Info = $"Ресурс, который будет добыт в ходе работы.";
+                    }
+                    else if(Facility is Farmacy)
+                    {
+                        ParameterInfos[i].text = $"Производимый препарат: Антиспячкин";
+                        ParameterTips[i]._Info = $"Препарат, который будет произведён по окончании работы.\nТребуется работы для одного препарата: {(Facility as Farmacy)._RequiredWork}";
+                    }
+                    else if(Facility is Factory)
+                    {
+                        ParameterInfos[i].text = $"Производимый ресурс: {CityStorage.ResourceName((Facility as Factory)._ResourceProduce)}";
+                        ParameterTips[i]._Info = $"Ресурс, который будет произведён по окончании работы.\nТребуется работы на единицу ресурса: {(Facility as Factory)._RequiredWork}";
+                    }
                     break;
                 case 9:
-                    ParameterInfos[i].text = $"Базовая выработка: {(Facility as FoodProducer)._BaseProduce}";
-                    ParameterTips[i]._Info = $"Сколько еды принесет здание при нормальных условиях.\n\nТекущая потенциальая выработка: {(Facility as FoodProducer).GetPotencialEffectivity() * (Facility as FoodProducer)._BaseProduce}";
-                    break;
-                case 10:
-                    ParameterInfos[i].text = $"Вместимость еды: {(Facility as FoodStorage)._Capacity}";
-                    ParameterTips[i]._Info = $"Количество еды, которое может храниться на складе.";
-                    break;
-                case 11:
-                    ParameterInfos[i].text = $"Объем работы строительства: {(Facility as ConstructionProject)._WorkLeft}";
-                    ParameterTips[i]._Info = $"Количество дней до конца стройки. При нормальных условиях снижается на 1 за день.\n\nТекущее потенциальное снижение за день: {(Facility as ConstructionProject).GetPotencialEffectivity()}";
-                    break;
-                case 12:
-                    ParameterInfos[i].text = $"Номинал ресурсов: {(Facility as Producer)._Nominal}";
-                    ParameterTips[i]._Info = $"Количество ресурсов, получаемых при нормальных условиях.\n\nТекущее потенциальное получение: {Facility.GetPotencialEffectivity() * (Facility as Producer)._Nominal}";
-                    break;
-                case 13:
-                    ParameterInfos[i].text = $"Осталось ресурсов: {(Facility as ExsaustProducer)._ResourcesLeft}";
-                    ParameterTips[i]._Info = $"Количество оставшихся ресурсов. Если они закончатся, то этим местом уже нельзя будет воспользоваться.";
-                    break;
-                case 14:
-                    RobotsInfo.text = $"Назначено роботов: {(Facility as Producer)._Robots}/{(Facility as Producer)._RequiredRobots}";
-                    break;
-                case 15:
-                    ParameterInfos[i].text = $"Производство роботов: {(Facility as RobotFactory)._BaseProduce}";
-                    ParameterTips[i]._Info = $"Сколько будет построено роботов за день при нормальных условиях. Число приведется к целому с округлением вниз.\n\nТекущее потенциальное производство: {(Mathf.FloorToInt((Facility as RobotFactory)._BaseProduce * Facility.GetPotencialEffectivity()))}";
-                    break;
-                case 17:
-                    ParameterInfos[i].text = $"Тип ресурса: {CityStorage.ResourceName( (Facility as Producer)._ResourceType)}";
-                    ParameterTips[i]._Info = $"Количество роботов для нормальной работы.";
-                    break;
-                case 16:
-                    if(Facility is Producer)
+                    if(Facility is Assimilator)
                     {
-                        if((Facility as Producer)._ConsumeResource == CityStorage.ResourceType.None)
+                        ParameterInfos[i].text = $"Объем добычи: {Mathf.RoundToInt((Facility as Assimilator)._Producing)} ед/ч";
+
+                        if((Facility as Assimilator)._UseRobots)
                         {
-                            ParameterTips[i]._Info = $"Здание не требует никаких ресурсов для производства.";
-                            ParameterInfos[i].text = $"Не требует ресурсов";
+                            ParameterTips[i]._Info = $"Сколько ресурсов будет получено в следующий час.\n\nНоминальное количество ресурса: {(Facility as Assimilator).GetNominal()} ед/ч\nИтоговое значение: {(Facility as Assimilator).GetNominal() / 2f} + {(Facility as Assimilator).GetNominal() / 2f} * {Facility._Effectivity} = {(Facility as Assimilator)._Producing} ед/ч";
                         }
                         else
                         {
-                            ParameterInfos[i].text = $"Потребление {CityStorage.ResourceName((Facility as Producer)._ConsumeResource)}: {(Facility as Producer)._Consume}";
-                            ParameterTips[i]._Info = $"Треубемое количество ресурса для работы.";
+                            ParameterTips[i]._Info = $"Сколько ресурсов будет получено в следующий час.\n\nНоминальное количество ресурса: {(Facility as Assimilator).GetNominal()} ед/ч";
                         }
                     }
-                    else if(Facility is RobotFactory)
+                    else if(Facility is EnergyProcuder)
                     {
-                        ParameterInfos[i].text = $"Потребление металла: {(Facility as RobotFactory)._RobotCost}";
-                        ParameterTips[i]._Info = $"Треубемое количество ресурса для производства одного робота.";
+                        ParameterInfos[i].text = $"Энерговыработка: {Mathf.RoundToInt((Facility as EnergyProcuder)._Producing)} ед/ч";
+                        ParameterTips[i]._Info = $"Сколько электричества будет произведено в следующий час.\n\nНоминальное количества электричества: {(Facility as EnergyProcuder)._BaseProduce} ед/ч\nИтоговое значение: {(Facility as EnergyProcuder)._BaseProduce / 2f} + {(Facility as EnergyProcuder)._BaseProduce / 2f} * {Facility._Effectivity}^2 = {(Facility as EnergyProcuder)._Producing} ед/ч";
                     }
-                    else if (Facility is EnergyProcuder)
+                    else if (Facility is FoodProducer)
                     {
-                        ParameterInfos[i].text = $"Потребление {CityStorage.ResourceName((Facility as EnergyProcuder)._Resource)}: {(Facility as EnergyProcuder)._BaseConsume}";
-                        ParameterTips[i]._Info = $"Треубемое количество ресурса для максимальной выработки электричества.";
+                        ParameterInfos[i].text = $"Производство мёда: {Mathf.RoundToInt((Facility as FoodProducer)._BaseProduce * Facility._Effectivity)} ед/ч";
+                        ParameterTips[i]._Info = $"Сколько мёда будет произведено в следующий час.\n\nНоминальное количество мёда: {(Facility as FoodProducer)._BaseProduce} ед/ч";
+                    }
+                    break;
+                case 10:
+                    if(Facility is ConstructionProject)
+                    {
+                        ParameterInfos[i].text = $"Осталось работы: {(int)((Facility as ConstructionProject)._WorkLeft * 100)}%";
+                        ParameterTips[i]._Info = $"Количество работы до конца стройки.\n\nСнижение работы: {(int)(Facility._Effectivity * CityTime._DaySection * 100)}%";
+                    }
+                    else if(Facility is Factory)
+                    {
+                        ParameterInfos[i].text = $"Осталось работы: {(int)((Facility as Factory)._Work * 100)}%";
+                        ParameterTips[i]._Info = $"Количество работы до производства ресурса.\n\nСнижение работы: {(int)(Facility._Effectivity * CityTime._DaySection  * 100)}%";
+                    }
+                    else if(Facility is Farmacy)
+                    {
+                        ParameterInfos[i].text = $"Осталось работы: {(int)((Facility as Farmacy)._Work * 100)}%";
+                        ParameterTips[i]._Info = $"Количество работы до производства препарата.\n\nСнижение работы: {(int)(Facility._Effectivity * CityTime._DaySection * 100)}%";
+                    }
+                    else if (Facility is Finders)
+                    {
+                        ParameterInfos[i].text = $"Осталось работы: {(int)((Facility as Finders)._FindWork * 100)}%";
+                        ParameterTips[i]._Info = $"Количество работы до обнаружение следующей точки падения.\n\nСнижение работы: {(int)(Facility._Effectivity * CityTime._DaySection * 100)}%";
+                    }
+                    else if (Facility is MedFacility)
+                    {
+                        ParameterInfos[i].text = $"Время для лечения: {(Facility as MedFacility)._HealHours} ч";
+
+                        string info = "Количество работы до возможного лечения пациента.\n\n";
+                        for(int ii = 0; ii < (Facility as MedFacility)._AssignedBears.Length; ii++)
+                        {
+                            info += $"{Facility._AssignedBears[ii]._Name}: {(Facility as MedFacility)._BearWork[ii]} ч";
+                        }
+
+                        ParameterTips[i]._Info = info;
+                    }
+                    break;
+                case 11:
+                    if (Facility is Factory)
+                    {
+                        ParameterInfos[i].text = $"Требуемый материал: {CityStorage.ResourceName((Facility as Factory)._RequiredResource)} ({(Facility as Factory)._Cost} ед)";
+                        ParameterTips[i]._Info = $"Материал, который нужен для производства ресурса.\n\nМатериал: {CityStorage.ResourceName((Facility as Factory)._RequiredResource)}\nКоличество: {(Facility as Factory)._Cost}";
+                    }
+                    else if (Facility is Farmacy)
+                    {
+                        ParameterInfos[i].text = $"Требуемый материал: {CityStorage.ResourceName((Facility as Farmacy)._RequiredResource)} ({(Facility as Farmacy)._Cost} ед)";
+                        ParameterTips[i]._Info = $"Материал, который нужен для производства препарата.\n\nМатериал: {CityStorage.ResourceName((Facility as Farmacy)._RequiredResource)}\nКоличество: {(Facility as Farmacy)._Cost}";
+                    }
+                    else if(Facility is EnergyProcuder)
+                    {
+                        ParameterInfos[i].text = $"Вид топлива: {CityStorage.ResourceName((Facility as EnergyProcuder)._Resource)}";
+                        ParameterTips[i]._Info = $"Материал, который будет использоваться в качестве топлива.\n\nТопливо: {CityStorage.ResourceName((Facility as EnergyProcuder)._Resource)}\nКоличество: {(Facility as EnergyProcuder)._ConsumeLimit} ед/ч";
+                    }
+                    else if (Facility is OutHeater)
+                    {
+                        ParameterInfos[i].text = $"Вид топлива: Энергомёд ({(Facility as OutHeater)._Consume} ед/ч)";
+                        ParameterTips[i]._Info = $"Ресурс, который будет использоваться в качестве топлива.\n\nТопливо: Энергомёд\nКоличество: {(Facility as OutHeater)._Consume} ед/ч";
+                    }
+                    break;
+                case 12:
+                    if(Facility is EnergyProcuder)
+                    {
+                        ParameterInfos[i].text = $"Лимит топлива: {(int)((Facility as EnergyProcuder)._ConsumeLimit * 10) / 10f} ед/ч";
+                        ParameterTips[i]._Info = $"Количество топлива, сжигаемого в час для выработки электричества.\nЧем больше сжигается топлива, тем больше вырабатывается энергии.";
+                    }
+                    else if(Facility is OutHeater)
+                    {
+                        ParameterInfos[i].text = $"Номинал тепла: {(Facility as OutHeater)._HeatLevel} ед";
+                        ParameterTips[i]._Info = $"Количество тепла, к которому будет стремиться отопитель.\nЧем больше номинал, тем больше требуется топлива и меньше КПД.";
+                    }
+                    break;
+                case 13:
+                    ParameterInfos[i].text = $"Изучение: {(int)((Facility as Laboratory)._ResearchPoints * Facility._Effectivity)} ед/ч";
+                    ParameterTips[i]._Info = $"Очки, которые пойдут в ход исследования выбранной технологии.\n\nНоминальное изучение: {(Facility as Laboratory)._ResearchPoints} ед/ч";
+                    break;
+                case 14:
+                    {
+                        ParameterInfos[i].text = $"Средний шанс лечения: {(Facility as MedFacility).AverageChance()}%";
+
+                        string info = $"Шанс медика вылечить медведя:";
+                        foreach (Bear bear in Facility._Bears)
+                        {
+                            info += $"\n{bear._Name}: {(int)(15 * bear._Work)}%";
+                        }
+
+                        ParameterTips[i]._Info = info;
+                    }
+                    break;
+                case 15:
+                    string research = "";
+                    switch ((Facility as Laboratory)._Target)
+                    {
+                        case CityResearch.ResearchType.Electricity:
+                            research = $"Электроэнергия";
+                            break;
+                        case CityResearch.ResearchType.Cold:
+                            research = $"Отопительные системы";
+                            break;
+                        case CityResearch.ResearchType.Medicine:
+                            research = $"Медицина и препараты";
+                            break;
+                        case CityResearch.ResearchType.Travels:
+                            research = $"Путешествия и логистика";
+                            break;
+                        case CityResearch.ResearchType.Household:
+                            research = $"Жилищные условия";
+                            break;
+                        case CityResearch.ResearchType.Food:
+                            research = $"Пасеки и мёд";
+                            break;
+                        case CityResearch.ResearchType.Production:
+                            research = $"Производство";
+                            break;
+                        case CityResearch.ResearchType.Mining:
+                            research = $"Добыча";
+                            break;
+                    }
+
+                    ParameterInfos[i].text = $"Исследование: {research}";
+                    ParameterTips[i]._Info = $"Выбранный курс разработок для данной лаборатории.";
+                    break;
+                case 16:
+                    if(Facility is EnergyProcuder)
+                    {
+                        ParameterInfos[i].text = $"Требуемая работа: {Mathf.RoundToInt((Facility as EnergyProcuder)._RequiredWork * 100)}%";
+                        ParameterTips[i]._Info = $"Работа необходимая для нормальной работы здания.";
+                    }
+                    else if(Facility is Assimilator)
+                    {
+                        if((Facility as Assimilator)._UseRobots)
+                        {
+                            ParameterInfos[i].text = $"Требуемая работа: {Mathf.RoundToInt((Facility as Assimilator)._RequiredWork * 100)}%";
+                            ParameterTips[i]._Info = $"Работа необходимая для нормальной работы здания.";
+                        }
+                        else
+                        {
+                            ParameterInfos[i].text = $"Требуемая работа: -";
+                            ParameterTips[i]._Info = $"Работа необходимая для нормальной работы здания.";
+                        }
+                    }
+                    else if (Facility is CyberPaseka)
+                    {
+                        ParameterInfos[i].text = $"Требуемая работа: {Mathf.RoundToInt((Facility as CyberPaseka)._RequiredWork * 100)}%";
+                        ParameterTips[i]._Info = $"Работа необходимая для нормальной работы здания.";
+                    }
+                    break;
+                case 17:
+                    if(Facility is Assimilator)
+                    {
+                        if ((Facility as Assimilator)._UseRobots)
+                        {
+                            ParameterInfos[i].text = $"Роботы: {(Facility as Assimilator)._Robots}/{(Facility as Assimilator)._MaxRobots}";
+                            ParameterTips[i]._Info = $"Количество назначенных на работу роботов.";
+                        }
+                        else
+                        {
+                            ParameterInfos[i].text = $"Роботы: -";
+                            ParameterTips[i]._Info = $"Количество назначенных на работу роботов.";
+                        }
+                    }
+                    else if (Facility is CyberPaseka)
+                    {
+                        ParameterInfos[i].text = $"Киберпчёлы: {(Facility as CyberPaseka)._CyberBees}/{(Facility as CyberPaseka)._MaxCyberBees}";
+                        ParameterTips[i]._Info = $"Количество назначенных на работу киберпчёл.";
                     }
                     break;
                 case 18:
-                    ParameterInfos[i].text = $"Лечение: {(Facility as MedFacility)._Healing} ед.";
-                    ParameterTips[i]._Info = $"Количество излечиваемоего здоровья пациента-медведя.";
+                    if(Facility is EnergyProcuder)
+                    {
+                        ParameterInfos[i].text = $"Эффект отопления: {(Facility as EnergyProcuder)._HeatEffect}";
+                        ParameterTips[i]._Info = $"На сколько единиц здания станут теплее.\n\nОхватываемый радиус: {(Facility as EnergyProcuder)._HeatRadius}";
+                    }
+                    else if(Facility is OutHeater)
+                    {
+                        ParameterInfos[i].text = $"Эффект отопления: {(Facility as OutHeater)._HeatLevel}";
+                        ParameterTips[i]._Info = $"На сколько единиц здания станут теплее.\n\nОхватываемый радиус: {(Facility as OutHeater)._HeatRadius}";
+                    }
                     break;
                 case 19:
-                    ParameterInfos[i].text = $"Количество пациентов: {(Facility as MedFacility)._HealCount}.";
-                    ParameterTips[i]._Info = $"Сколько медведей будет вылечино за день.";
-                    break;
-                case 20:
-                    ParameterInfos[i].text = $"Оставшее время разведки: {(Facility as Finders)._Progress}.";
-                    ParameterTips[i]._Info = $"Сколько дней осталось до спасения еще одного медведя.\n\nПотенциальное изменение {-Facility.GetPotencialEffectivity()} дней";
-                    break;
-                case 21:
-                    ParameterInfos[i].text = $"Номинальное количество очков изучения: {(Facility as Laboratory)._BaseResearchPoints}.";
-                    ParameterTips[i]._Info = $"Очки, которые пойдут на выбранное исследование.\n\nПотенциальное изучение: {Facility.GetPotencialEffectivity() * (Facility as Laboratory)._BaseResearchPoints} очков";
+                    if (Facility._CanBeHeated)
+                    {
+                        switch (Facility._Heater)
+                        {
+                            case 0:
+                                ParameterInfos[i].text = $"Режим обогревателя: Выключен";
+                                ParameterTips[i]._Info = $"Обогреватель согревает здание за счёт сжигания энергоносителей.\n\nПотребление: 0\nЭффект отопления: 0";
+                                break;
+                            case 1:
+                                ParameterInfos[i].text = $"Режим обогревателя: Энергомёд";
+                                ParameterTips[i]._Info = $"Обогреватель согревает здание за счёт сжигания энергоносителей.\n\nПотребление: 1\nЭффект отопления: 3";
+                                break;
+                            case 2:
+                                ParameterInfos[i].text = $"Режим обогревателя: Древесина";
+                                ParameterTips[i]._Info = $"Обогреватель согревает здание за счёт сжигания энергоносителей.\n\nПотребление: 5\nЭффект отопления: 2";
+                                break;
+                        }
+                    }
                     break;
             }
         }
 
         Describtion.text = Facility._ConstructInfo.Description.Substring(Facility._ConstructInfo.Description.IndexOf("<i>") + 3, Facility._ConstructInfo.Description.IndexOf("</i>") - 3);
-        float prefHeight = Describtion.cachedTextGenerator.GetPreferredHeight(Describtion.text, Describtion.GetGenerationSettings(new Vector2(RectTransform.sizeDelta.x, 0)));
-        Describtion.rectTransform.sizeDelta = new Vector2(0, prefHeight);
-        float y = 220 + Configuration.Length * 30 + prefHeight;
 
-        Describtion.rectTransform.anchoredPosition = new Vector2(0, - y + prefHeight - 30);
+        PersonalLabel.text = $"{Facility._AssignedBears.Length}/{Facility._MaxBearCount}";
 
-        y += 27.5f;
-
-        if (Facility._CanBeDisabled)
+        float y = 79;
+        if (Facility._AssignedBears.Length < Facility._MaxBearCount)
         {
-            y += 30;
-            EnabledButton.gameObject.SetActive(true);
-            EnabledButton.anchoredPosition = new Vector2(0, -y);
-            EnabledInfo.text = Facility._Enabled ? $"Работа не приостановлена" : "Работа приостановлена";
+            AddButton.gameObject.SetActive(true);
+            AddButton.anchoredPosition = new Vector2(0, -y);
+            y += 143;
         }
         else
         {
-            EnabledButton.gameObject.SetActive(false);
+            AddButton.gameObject.SetActive(false);
         }
 
-        if (City._Research.GetResearchLevel(CityResearch.ResearchType.Cold) > 0 && Facility._CanBeHeated)
+        if (Facility is Assimilator && (Facility as Assimilator)._UseRobots)
         {
-            y += 30;
-            HeaterButton.anchoredPosition = new Vector2(0, -y);
-            HeaterButton.gameObject.SetActive(true);
-
-            switch (Facility._Heater)
-            {
-                case 0:
-                    HeaterInfo.text = "Обогреватель выключен";
-                    break;
-                case 1:
-                    HeaterInfo.text = "Обогреватель работает на электричестве";
-                    break;
-                case 2:
-                    HeaterInfo.text = "Обогреватель работает на энергомёде";
-                    break;
-                case 3:
-                    HeaterInfo.text = "Обогреватель работает на древесине";
-                    break;
-            }
-        }
-        else
-        {
-            HeaterButton.gameObject.SetActive(false);
-        }
-
-        if (StaticTools.Contains(Configuration, 14))
-        {
-            y += 30;
             RobotButton.gameObject.SetActive(true);
             RobotButton.anchoredPosition = new Vector2(0, -y);
+            y += 143;
         }
         else
         {
             RobotButton.gameObject.SetActive(false);
         }
 
-        if (Facility is Laboratory)
+        if (Facility is CyberPaseka)
         {
-            y += 30;
-            switch((Facility as Laboratory)._Target)
-            {
-                case CityResearch.ResearchType.Electricity:
-                    ResearchInfo.text = $"Исследование: Электроэнергия";
-                    break;
-                case CityResearch.ResearchType.Cold:
-                    ResearchInfo.text = $"Исследование: Отопительные системы";
-                    break;
-                case CityResearch.ResearchType.Medicine:
-                    ResearchInfo.text = $"Исследование: Медицина и препараты";
-                    break;
-                case CityResearch.ResearchType.Travels:
-                    ResearchInfo.text = $"Исследование: Путешествия и логистика";
-                    break;
-                case CityResearch.ResearchType.Household:
-                    ResearchInfo.text = $"Исследование: Жилищные условия";
-                    break;
-                case CityResearch.ResearchType.Food:
-                    ResearchInfo.text = $"Исследование: Пасеки и мёд";
-                    break;
-                case CityResearch.ResearchType.Production:
-                    ResearchInfo.text = $"Исследование: Производство";
-                    break;
-                case CityResearch.ResearchType.Mining:
-                    ResearchInfo.text = $"Исследование: Добыча";
-                    break;
-            }
-            ResearchButton.gameObject.SetActive(true);
-            ResearchButton.anchoredPosition = new Vector2(0, -y);
+            CyberBeeButton.gameObject.SetActive(true);
+            CyberBeeButton.anchoredPosition = new Vector2(0, -y);
+            y += 143;
         }
         else
         {
-            ResearchButton.gameObject.SetActive(false);
+            CyberBeeButton.gameObject.SetActive(false);
         }
 
-        y += 62.5f;
-        AssignedBearsLabel.text = $"{Facility._AssignedBears.Length}/{Facility._MaxBearCount} медведей";
-        AssignedBearsLabel.rectTransform.anchoredPosition = new Vector2(0, -y);
-        y += 17.5f;
-
-        bool addbear = Facility._AssignedBears.Length < Facility._MaxBearCount;
-        string names = addbear ? $"Назначить медведя\n" : "";
-        foreach(Bear bear in Facility._AssignedBears)
+        int count = Facility._AssignedBears.Length;
+        if (BearSlots.Length < count)
         {
-            names += $"{bear._Name} #{StaticTools.IndexOf(City._DataBase._Bears, bear)}\n";
+            BearSlot[] newSlots = new BearSlot[count - BearSlots.Length];
+            for (int i = 0; i < count - BearSlots.Length; i++)
+            {
+                BearSlot slot = Instantiate(BearSlotPrefab, PersonalContent).GetComponent<BearSlot>();
+                slot._RectTransform.anchorMin = new Vector2(0.5f, 1);
+                slot._RectTransform.anchorMax = new Vector2(0.5f, 1);
+                newSlots[i] = slot;
+            }
+
+            BearSlots = StaticTools.ExpandMassive(BearSlots, newSlots);
+        }
+        else if (BearSlots.Length > count)
+        {
+            while (BearSlots.Length > count)
+            {
+                Destroy(BearSlots[BearSlots.Length - 1].gameObject);
+                BearSlots = StaticTools.ReduceMassive(BearSlots, BearSlots.Length - 1);
+            }
         }
 
-        HolderContent.anchoredPosition = new Vector2(0, -y);
-        Holders.text = names;
-        HolderContent.sizeDelta = new Vector2(0, Facility._AssignedBears.Length * 35 + (addbear ? 35 : 0));
-        IlusionHolders._MaxIndex = Facility._AssignedBears.Length + 1;
+        for(int i = 0; i < Facility._AssignedBears.Length; i++)
+        {
+            BearSlots[i]._RectTransform.anchoredPosition = new Vector2(0, -y);
+            BearSlots[i].SetInfo(Facility._AssignedBears[i], i, Click);
 
-        y += Facility._AssignedBears.Length * 35 + (addbear ? 35 : 0);
-
-        Content.sizeDelta = new Vector2(0, y + 15);
+            y += 143;
+        }
+        PersonalContent.sizeDelta = new Vector2(0, y + 15);
     }
 
     public void Click(int index)
@@ -444,85 +746,55 @@ public class FacilityWindow : DefaultWindow
             return;
         }
 
-        if(Facility._AssignedBears.Length < Facility._MaxBearCount)
-        {
-            if(index == 0)
-            {
-                AddBear();
-                return;
-            }
-            else
-            {
-                SelectedBear = Facility._AssignedBears[index - 1];
-            }
-        }
-        else
-        {
-            SelectedBear = Facility._AssignedBears[index];
-        }
+        SelectedBear = Facility._AssignedBears[index];
 
-        UserInteract.AskVariants(SelectedBear._Name, new string[] { "Информация", "Снять его с назначения", "Назначить вместо него" }, new int[] { 0, 1, 2 }, RightMouseBear);
+        UserInteract.AskVariants(SelectedBear._Name, new string[] { "Информация", "Снять его с назначения"}, new int[] { 0, 1 }, RightMouseBear);
     }
     public void RightMouseBear(int index)
     {
         switch (index)
         {
             case 0:
-                FindObjectOfType<WindowCreator>().CreateWindow<BearWindow>().SetInfo(SelectedBear);
+                WindowCreator.CreateWindow<BearWindow>().SetInfo(SelectedBear);
                 break;
             case 1:
                 Facility.AssignBear(SelectedBear, true);
-                break;
-            case 2:
-                UserInteract.AskBear("Назначить вместо него", Resign);
                 break;
         }
     }
     public void AddBear()
     {
-        UserBear userBear = UserInteract.AskBear("назначить медведя", AddBear);
+        int[] exlude = new int[Facility._AssignedBears.Length];
+        for(int i = 0; i < exlude.Length; i++)
+        {
+            exlude[i] = StaticTools.IndexOf(City._DataBase._Bears, Facility._AssignedBears[i]);
+        }
 
         if(Facility is Home)
         {
-            userBear.SetBearSorting(3);
-            userBear.SetBearKasta(-1);
+            UserBear userBear = UserInteract.AskBear("назначить медведя", AddBear, UserBear.Sorting.Facility, "Жилище", UserBear.Sorting.Facility.GetHashCode(), exlude);
+            userBear._NoWorkDoHome = true;
         }
         else
         {
-            userBear.SetBearSorting(2);
-            userBear.SetBearKasta(Facility._RequiredKasta.GetHashCode());
+            UserBear userBear = UserInteract.AskBear("назначить медведя", AddBear, UserBear.Sorting.Kasta, Facility._RequiredKasta.ToString(), UserBear.Sorting.Facility.GetHashCode(), exlude);
         }
     }
     public void AddBear(Bear bear)
     {
         Facility.AssignBear(bear, false);
     }
-    public void Resign(Bear bear)
-    {
-        Facility.AssignBear(SelectedBear, true);
-        Facility.AssignBear(bear, false);
-    }
-
-    public void ClickRobot()
-    {
-        if (Input.GetMouseButtonUp(1))
-        {
-            AddRobot(-1);
-        }
-        else
-        {
-            AddRobot(1);
-        }
-    }
     public void AddRobot(int direction)
     {
-        Producer producer = Facility as Producer;
+        Assimilator producer = Facility as Assimilator;
         if (producer != null)
         {
             if(direction > 0)
             {
-                if (producer._RequiredRobots > producer._Robots && City._Storage._Robots > 0)
+                if (producer._MaxRobots > producer._Robots && City._Storage._Robots > 0)
                 {
+                    City._CityStatistics.AddStatistic(new CityStatistics.Statistic($"{Facility._ConstructInfo.Name} #{StaticTools.IndexOf(City._DataBase._Facilities, Facility)}", (int)(City._Time._WorldTime / 60), -1, CityStorage.ResourceType.Robots));
+
                     City._Storage._Robots--;
                     producer._Robots++;
                 }
@@ -531,11 +803,83 @@ public class FacilityWindow : DefaultWindow
             {
                 if (producer._Robots > 0)
                 {
+                    City._CityStatistics.AddStatistic(new CityStatistics.Statistic($"{Facility._ConstructInfo.Name} #{StaticTools.IndexOf(City._DataBase._Facilities, Facility)}", (int)(City._Time._WorldTime / 60), 1, CityStorage.ResourceType.Robots));
+
                     City._Storage._Robots++;
                     producer._Robots--;
                 }
             }
         }
+    }
+    public void AddBee(int direction)
+    {
+        CyberPaseka paseka = Facility as CyberPaseka;
+        if (paseka != null)
+        {
+            if (direction > 0)
+            {
+                if (paseka._MaxCyberBees > paseka._CyberBees && City._Storage._CyberBee > 0)
+                {
+                    City._CityStatistics.AddStatistic(new CityStatistics.Statistic($"{Facility._ConstructInfo.Name} #{StaticTools.IndexOf(City._DataBase._Facilities, Facility)}", (int)(City._Time._WorldTime / 60), -1, CityStorage.ResourceType.CyberBee));
+
+                    City._Storage._CyberBee--;
+                    paseka._CyberBees++;
+                }
+            }
+            else if (direction < 0)
+            {
+                if (paseka._CyberBees > 0)
+                {
+                    City._CityStatistics.AddStatistic(new CityStatistics.Statistic($"{Facility._ConstructInfo.Name} #{StaticTools.IndexOf(City._DataBase._Facilities, Facility)}", (int)(City._Time._WorldTime / 60), 1, CityStorage.ResourceType.CyberBee));
+
+                    City._Storage._CyberBee++;
+                    paseka._CyberBees--;
+                }
+            }
+        }
+    }
+
+    public void FlyDurandal()
+    {
+        (Facility as Durandal).RightMouseActions(2);
+    }
+
+    public void ChangeUseRobots()
+    {
+        (Facility as Assimilator).RightMouseActions(5);
+    }
+
+    public void ChangeconsumeLimit()
+    {
+        (Facility as EnergyProcuder).RightMouseActions(5);
+    }
+
+    public void ChangeHeatLevel()
+    {
+        (Facility as OutHeater).RightMouseActions(5);
+    }
+
+    public void ChangeProduce()
+    {
+        if(Facility is Factory)
+        {
+            Facility.RightMouseActions(5);
+        }
+    }
+
+    public void Demolish()
+    {
+        Facility.RightMouseActions(0);
+    }
+
+    public void Unassign()
+    {
+        Facility.Unassign();
+    }
+
+    public void AutoAssign()
+    {
+        Facility.AutoAssign();
     }
 
     public void ChangeHeaterWork()
@@ -545,7 +889,7 @@ public class FacilityWindow : DefaultWindow
             return;
         }
 
-        UserInteract.AskVariants("Режим обогревателя", new string[] { "Электричество", "Энергомёд", "Древесина", "Выключен" }, new int[] { 1, 2, 3, 0 }, ChangeHeaterWork);
+        UserInteract.AskVariants("Режим обогревателя", new string[] { "Энергомёд", "Древесина", "Выключен" }, new int[] { 1, 2, 0 }, ChangeHeaterWork);
     }
     public void ChangeHeaterWork(int index)
     {
@@ -567,42 +911,9 @@ public class FacilityWindow : DefaultWindow
         (Facility as Laboratory)._Target = (ResearchType)index;
     }
 
-    public void ChangeEnable()
-    {
-        if (Facility == null)
-        {
-            return;
-        }
-
-        if (Facility._Enabled)
-        {
-            UserInteract.AskConfirm("Приостановка работы", "Если вы приостановите здание, что все медведи будут сняты с позиций, а здание прекратит потреблять и совершать работу.", DisableFacility);
-        }
-        else
-        {
-            Facility._Enabled = true;
-            SoundEffector.PlayEnableDisable(Facility._Enabled);
-        }
-    }
-    public void DisableFacility(bool state)
-    {
-        if (state)
-        {
-            Facility._Enabled = false;
-            SoundEffector.PlayEnableDisable(Facility._Enabled);
-        }
-    }
-
-    public void RightMouseTask()
-    {
-        if(Facility != null)
-        {
-            Facility.RightMouse();
-        }
-    }
     public override void RightMouse()
     {
-        UserInteract.AskVariants(_Label, new string[] { $"{(Pinned ? "открепить" : "закрепить")} окно", "закрыть окно", "Обновить информацию", "Дать распоряжение" }, new int[] { -1, 0, 1, 2 }, RightMouseActions);
+        UserInteract.AskVariants(_Label, new string[] { $"{(Pinned ? "открепить" : "закрепить")} окно", "закрыть окно", "Обновить информацию", "Выбрать здание" }, new int[] { -1, 0, 1, 2 }, RightMouseActions);
     }
     public override void RightMouseActions(int index)
     {
@@ -618,7 +929,10 @@ public class FacilityWindow : DefaultWindow
                 UpdateInfo();
                 break;
             case 2:
-                RightMouseTask();
+                if (Facility != null)
+                {
+                    Facility.Interact();
+                }
                 break;
         }
     }

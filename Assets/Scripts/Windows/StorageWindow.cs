@@ -26,8 +26,9 @@ public class StorageWindow : DefaultWindow, ISingleOne
 
     public override string _Label => "Ресурсы города";
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
+        base.OnDestroy();
         City._Storage.OnChanges -= UpdateInfo;
         City._DataBase.OnBearChanges -= UpdateInfo;
         City._DataBase.OnFacilityChanges -= UpdateInfo;
@@ -53,13 +54,13 @@ public class StorageWindow : DefaultWindow, ISingleOne
         Robots.text = $"Роботы: {City._Storage._Robots}";
         Facilities.text = $"Здания: {City._DataBase._Facilities.Length}";
         Electricity.text = $"Электроэнергия: {City._Energosystem._StoredEnergy}/{City._Energosystem._EnergyCapacity}";
-        StoredFood.text = $"Еда: {City._Foodstream._StoredFood}/{City._Foodstream._FoodCapacity}";
+        StoredFood.text = $"Еда: {City._Foodstream._StoredFood}";
 
-        IndexedProducer[] energyHoneyProduce = new IndexedProducer[0];
-        IndexedProducer[] berezeniumHoneyProduce = new IndexedProducer[0];
-        IndexedProducer[] metalHoneyProduce = new IndexedProducer[0];
-        IndexedProducer[] woodHoneyProduce = new IndexedProducer[0];
-        IndexedProducer[] robotsHoneyProduce = new IndexedProducer[0];
+        IndexedAssimilator[] energyHoneyProduce = new IndexedAssimilator[0];
+        IndexedAssimilator[] berezeniumHoneyProduce = new IndexedAssimilator[0];
+        IndexedAssimilator[] metalHoneyProduce = new IndexedAssimilator[0];
+        IndexedAssimilator[] woodHoneyProduce = new IndexedAssimilator[0];
+        IndexedAssimilator[] robotsHoneyProduce = new IndexedAssimilator[0];
         IndexedHome[] homes = new IndexedHome[0];
         IndexedEnergy[] energyProcuders = new IndexedEnergy[0];
         IndexedFood[] foodProducers = new IndexedFood[0];
@@ -68,25 +69,25 @@ public class StorageWindow : DefaultWindow, ISingleOne
 
         for (int i = 0; i < facilities.Length; i++)
         {
-            Producer producer = facilities[i] as Producer;
-            if (producer != null)
+            Assimilator assimilator = facilities[i] as Assimilator;
+            if (assimilator != null)
             {
-                switch (producer._ResourceType)
+                switch (assimilator._ConstructInfo.MiningResource)
                 {
                     case CityStorage.ResourceType.EnergyHoney:
-                        energyHoneyProduce = StaticTools.ExpandMassive(energyHoneyProduce, new IndexedProducer(producer, i));
+                        energyHoneyProduce = StaticTools.ExpandMassive(energyHoneyProduce, new IndexedAssimilator(assimilator, i));
                         break;
                     case CityStorage.ResourceType.Berezenium:
-                        berezeniumHoneyProduce = StaticTools.ExpandMassive(berezeniumHoneyProduce, new IndexedProducer(producer, i));
+                        berezeniumHoneyProduce = StaticTools.ExpandMassive(berezeniumHoneyProduce, new IndexedAssimilator(assimilator, i));
                         break;
                     case CityStorage.ResourceType.Metal:
-                        metalHoneyProduce = StaticTools.ExpandMassive(metalHoneyProduce, new IndexedProducer(producer, i));
+                        metalHoneyProduce = StaticTools.ExpandMassive(metalHoneyProduce, new IndexedAssimilator(assimilator, i));
                         break;
                     case CityStorage.ResourceType.Wood:
-                        woodHoneyProduce = StaticTools.ExpandMassive(woodHoneyProduce, new IndexedProducer(producer, i));
+                        woodHoneyProduce = StaticTools.ExpandMassive(woodHoneyProduce, new IndexedAssimilator(assimilator, i));
                         break;
                     case CityStorage.ResourceType.Robots:
-                        robotsHoneyProduce = StaticTools.ExpandMassive(robotsHoneyProduce, new IndexedProducer(producer, i));
+                        robotsHoneyProduce = StaticTools.ExpandMassive(robotsHoneyProduce, new IndexedAssimilator(assimilator, i));
                         break;
                 }
             }
@@ -106,10 +107,10 @@ public class StorageWindow : DefaultWindow, ISingleOne
 
         string info = "";
         float summproduce = 0;
-        foreach(IndexedProducer producer in energyHoneyProduce)
+        foreach(IndexedAssimilator assimilator in energyHoneyProduce)
         {
-            summproduce += producer.Producer.GetPotencialEffectivity() * producer.Producer._Nominal;
-            info += $"\n{producer.Producer._ConstructInfo.Name} #{producer.Index}: {producer.Producer.GetPotencialEffectivity() * producer.Producer._Nominal}";
+            summproduce += assimilator.Assimilator._Effectivity * assimilator.Assimilator.GetNominal();
+            info += $"\n{assimilator.Assimilator._ConstructInfo.Name} #{assimilator.Index}: {assimilator.Assimilator._Producing}";
         }
         info = $"Энергомёд - основной ресурс и источник энергии медведей, который они смогли извлечь из простого мёда путём хитрых и даже гениальных химический решений. " +
             $"\nВ данный момент времени медведи смогли выйти на масштабное производство такого мёда, однако из-за переизбытка некоторые медведи теряют смысл куда-либо стремиться и уходят в зажировку." +
@@ -119,10 +120,10 @@ public class StorageWindow : DefaultWindow, ISingleOne
 
         info = "";
         summproduce = 0;
-        foreach (IndexedProducer producer in berezeniumHoneyProduce)
+        foreach (IndexedAssimilator assimilator in berezeniumHoneyProduce)
         {
-            summproduce += producer.Producer.GetPotencialEffectivity() * producer.Producer._Nominal;
-            info += $"\n{producer.Producer._ConstructInfo.Name} #{producer.Index}: {producer.Producer.GetPotencialEffectivity() * producer.Producer._Nominal}";
+            summproduce += assimilator.Assimilator._Effectivity * assimilator.Assimilator.GetNominal();
+            info += $"\n{assimilator.Assimilator._ConstructInfo.Name} #{assimilator.Index}: {assimilator.Assimilator._Producing}";
         }
         info = $"Березениум - новый элемент, названный в честь плнеты месторождения Березия.\nУчёных заинтересовал данный минерал, судя по данным и изображениям, полученные с помощью зондов." +
             $"\nЧтобы поближе изучить данный элемент был подготовлен исследовательский экипаж и космолёт, который мы возглавили." +
@@ -132,20 +133,20 @@ public class StorageWindow : DefaultWindow, ISingleOne
 
         info = "";
         summproduce = 0;
-        foreach (IndexedProducer producer in metalHoneyProduce)
+        foreach (IndexedAssimilator assimilator in metalHoneyProduce)
         {
-            summproduce += producer.Producer.GetPotencialEffectivity() * producer.Producer._Nominal;
-            info += $"\n{producer.Producer._ConstructInfo.Name} #{producer.Index}: {producer.Producer.GetPotencialEffectivity() * producer.Producer._Nominal}";
+            summproduce += assimilator.Assimilator._Effectivity * assimilator.Assimilator.GetNominal();
+            info += $"\n{assimilator.Assimilator._ConstructInfo.Name} #{assimilator.Index}: {assimilator.Assimilator._Producing}";
         }
         info = $"Металл - стандартный и незаменимый ресурс во всей вселенной.\nЕго используют для сооружения зданий, кораблей, самолётов, в создании электроники, в том числе роботов и дронов.\n\nПотенциальное производство: {summproduce}\n" + info;
         MetalTip._Info = info;
 
         info = "";
         summproduce = 0;
-        foreach (IndexedProducer producer in woodHoneyProduce)
+        foreach (IndexedAssimilator assimilator in woodHoneyProduce)
         {
-            summproduce += producer.Producer.GetPotencialEffectivity() * producer.Producer._Nominal;
-            info += $"\n{producer.Producer._ConstructInfo.Name} #{producer.Index}: {producer.Producer.GetPotencialEffectivity() * producer.Producer._Nominal}";
+            summproduce += assimilator.Assimilator._Effectivity * assimilator.Assimilator.GetNominal();
+            info += $"\n{assimilator.Assimilator._ConstructInfo.Name} #{assimilator.Index}: {assimilator.Assimilator._Producing}";
         }
         info = $"Древесина - отличный органический ресурс, который можно будет отыскать почти на каждой планете, заселённой жизнью." +
             $"\nПредки медведей активно использовали древесину для застройки своих берлог, а также для их отапливания." +
@@ -154,10 +155,10 @@ public class StorageWindow : DefaultWindow, ISingleOne
 
         info = "";
         summproduce = 0;
-        foreach (IndexedProducer producer in robotsHoneyProduce)
+        foreach (IndexedAssimilator assimilator in robotsHoneyProduce)
         {
-            summproduce += producer.Producer.GetPotencialEffectivity() * producer.Producer._Nominal;
-            info += $"\n{producer.Producer._ConstructInfo.Name} #{producer.Index}: {producer.Producer.GetPotencialEffectivity() * producer.Producer._Nominal}";
+            summproduce += assimilator.Assimilator._Effectivity * assimilator.Assimilator.GetNominal();
+            info += $"\n{assimilator.Assimilator._ConstructInfo.Name} #{assimilator.Index}: {assimilator.Assimilator._Producing}";
         }
         info = $"Роботы и дроны - веха современной эры, позволяющая медведям реже заниматься тяжёлой работой и мелкими перевозками.\n" +
             $"С появлением оных немедленно развилась специальность программиста, которая подразумевает их управление, настраивание и алгоритмизацию." +
@@ -182,8 +183,8 @@ public class StorageWindow : DefaultWindow, ISingleOne
         summproduce = 0;
         foreach(IndexedEnergy procuder in energyProcuders)
         {
-            summproduce += procuder.Producer.GetPotencialEffectivity() * procuder.Producer._BaseProduce;
-            info += $"\n{procuder.Producer._ConstructInfo.Name} #{procuder.Index}: {procuder.Producer.GetPotencialEffectivity() * procuder.Producer._BaseProduce}";
+            summproduce += procuder.Assimilator._Producing;
+            info += $"\n{procuder.Assimilator._ConstructInfo.Name} #{procuder.Index}: {procuder.Assimilator._Producing}";
         }
         ElectricityTip._Info = $"Электричество - важный ресурс города, позволяющий ему функционировать." +
             $"\nВ обжитых городах проблемы с током не возникают из-за обилия энергомёда." +
@@ -195,24 +196,24 @@ public class StorageWindow : DefaultWindow, ISingleOne
         summproduce = 0;
         foreach (IndexedFood procuder in foodProducers)
         {
-            summproduce += procuder.Producer.GetPotencialEffectivity() * procuder.Producer._BaseProduce;
-            info += $"\n{procuder.Producer._ConstructInfo.Name} #{procuder.Index}: {procuder.Producer.GetPotencialEffectivity() * procuder.Producer._BaseProduce}";
+            summproduce += procuder.Assimilator._Effectivity * procuder.Assimilator._BaseProduce;
+            info += $"\n{procuder.Assimilator._ConstructInfo.Name} #{procuder.Index}: {procuder.Assimilator._Effectivity * procuder.Assimilator._BaseProduce}";
         }
-        StoredFoodTip._Info = $"Еда - все съедобное медведем, в нашем случае есть только мёд." +
+        StoredFoodTip._Info = $"Еда - все съедобное медведем, в нашем случае есть только мёд.\nВ случае нехватки еды, медведи начнут терять здоровье." +
             $"\nОбычные города всегда прокормят своих медведей, главное чтобы медведь не ушёл в зажировку. Здесь же придётся перейти на самообеспечение." +
             $"\nИз мёда на химических заводах производят энергомёд, который уже не стоит употреблять в виде еды." +
             $"\nВажно следить, чтобы медведи были сыты, иначе они будут недовольны, а их работоспособность уменьшится." +
             $"\n\nПотенциальное производство: {summproduce}\n" + info;
     }
 
-    private class IndexedProducer
+    private class IndexedAssimilator
     {
-        public Producer Producer;
+        public Assimilator Assimilator;
         public int Index;
 
-        public IndexedProducer(Producer producer, int index)
+        public IndexedAssimilator(Assimilator assimilator, int index)
         {
-            Producer = producer;
+            Assimilator = assimilator;
             Index = index;
         }
     }
@@ -229,23 +230,23 @@ public class StorageWindow : DefaultWindow, ISingleOne
     }
     private class IndexedEnergy
     {
-        public EnergyProcuder Producer;
+        public EnergyProcuder Assimilator;
         public int Index;
 
-        public IndexedEnergy(EnergyProcuder producer, int index)
+        public IndexedEnergy(EnergyProcuder assimilator, int index)
         {
-            Producer = producer;
+            Assimilator = assimilator;
             Index = index;
         }
     }
     private class IndexedFood
     {
-        public FoodProducer Producer;
+        public FoodProducer Assimilator;
         public int Index;
 
-        public IndexedFood(FoodProducer producer, int index)
+        public IndexedFood(FoodProducer assimilator, int index)
         {
-            Producer = producer;
+            Assimilator = assimilator;
             Index = index;
         }
     }

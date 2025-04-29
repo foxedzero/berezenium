@@ -16,6 +16,40 @@ public class MyButton : MonoBehaviour, IPointerClickHandler, IPointerEnterHandle
     [Space]
     [SerializeField] private Color ActiveColor;
     [SerializeField] private Color DefaultColor;
+    private bool Captured = false;
+
+    public Color _DefaultColor
+    {
+        get
+        {
+            return DefaultColor;
+        }
+        set
+        {
+            DefaultColor = value;
+
+            if (!Captured)
+            {
+                Graphic.color = DefaultColor;
+            }
+        }
+    }
+    public Color _ActiveColor
+    {
+        get
+        {
+            return ActiveColor;
+        }
+        set
+        {
+            ActiveColor = value;
+
+            if (Captured)
+            {
+                Graphic.color = ActiveColor;
+            }
+        }
+    }
 
     private void OnDisable()
     {
@@ -39,9 +73,11 @@ public class MyButton : MonoBehaviour, IPointerClickHandler, IPointerEnterHandle
     public void OnPointerEnter(PointerEventData eventData)
     {
         Graphic.color = ActiveColor;
+        Captured = true;
     }
     public void OnPointerExit(PointerEventData eventData)
     {
         Graphic.color = DefaultColor;
+        Captured = false;
     }
 }

@@ -4,9 +4,8 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using static Constructor;
 
-public class BuildSlot : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
+public class BuildSlot : MonoBehaviour
 {
-    [SerializeField] private Image Backgorund;
     [SerializeField] private Image Icon;
     [SerializeField] private Tipper Tipper;
     private ConstractionWindow Window = null;
@@ -18,22 +17,26 @@ public class BuildSlot : MonoBehaviour, IPointerClickHandler, IPointerEnterHandl
         Info = info;
 
         Icon.sprite = Info.Icon;
-        Tipper._Info =  $"<size=26>{info.Name}</size>\n\nГабариты:    длина {info.Sizes.x}    ширина {info.Sizes.y}\nТребуется древесины: {info.WoodCost}\nТребуется металла: {info.MetalCost}\nТребуется березениума: {info.BerezenuimCost}\nНавык строительства: {info.BuildSkill}\nВремя строительства: {info.BuildWork} день\n\n{info.Description}";
+
+        string tip = $"<size=26>{info.Name}</size>\n\nГабариты:    длина {info.Sizes.x}    ширина {info.Sizes.y}";
+        if(info.WoodCost > 0)
+        {
+            tip += $"\nТребуется древесины: {info.WoodCost}";
+        }
+        if (info.MetalCost > 0)
+        {
+            tip += $"\nТребуется металла: {info.MetalCost}";
+        }
+        if (info.BerezenuimCost > 0)
+        {
+            tip += $"\nТребуется березениума: {info.BerezenuimCost}";
+        }
+        tip += $"\nРаботы для постройки: {info.BuildWork * 100}%\n\n{info.Description}";
+        Tipper._Info = tip;
     }
 
-    public void OnPointerClick(PointerEventData eventData)
+    public void Click()
     {
-        SoundEffector.PlayUI(0);
         Window.Construct(Info);
-    }
-
-    public void OnPointerEnter(PointerEventData eventData)
-    {
-        Backgorund.color = Design._UseColor;
-    }
-
-    public void OnPointerExit(PointerEventData eventData)
-    {
-        Backgorund.color = Design._NoUseColor;
     }
 }

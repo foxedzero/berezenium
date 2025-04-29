@@ -1,0 +1,1 @@
+{"SecondTimeMultiplier":1.0,"PlayerSpeed":3.5,"BearRequiredFood":1.0,"ColdAddset":0}

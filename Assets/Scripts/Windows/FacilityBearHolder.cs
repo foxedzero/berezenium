@@ -21,13 +21,20 @@ public class FacilityBearHolder : MonoBehaviour, IPointerClickHandler, IPointerE
         switch (index)
         {
             case 0:
-                FindObjectOfType<WindowCreator>().CreateWindow<BearWindow>().SetInfo(Bear);
+                WindowCreator.CreateWindow<BearWindow>().SetInfo(Bear);
                 break;
             case 1:
                 Window._Facility.AssignBear(Bear, true);
                 break;
             case 2:
-                UserInteract.AskBear("Назначить вместо него", Resign);
+                if (Window._Facility is Home)
+                {
+                    UserBear userBear = UserInteract.AskBear("Назначить вместо него", Resign, UserBear.Sorting.Facility, "Жилище", UserBear.Sorting.Facility.GetHashCode());
+                }
+                else
+                {
+                    UserBear userBear = UserInteract.AskBear("Назначить вместо него", Resign, UserBear.Sorting.Kasta, Window._Facility._RequiredKasta.ToString(), UserBear.Sorting.Facility.GetHashCode());
+                }
                 break;
         }
     }

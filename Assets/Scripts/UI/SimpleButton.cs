@@ -4,7 +4,7 @@ using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using UnityEngine.Serialization;
 
-public class SimpleButton : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
+public class SimpleButton : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerUpHandler
 {
     [System.Serializable] public class MyClickEvent : UnityEvent { }
 
@@ -12,36 +12,28 @@ public class SimpleButton : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
     [SerializeField]
     protected MyClickEvent m_OnClick = new MyClickEvent();
 
-    [SerializeField] protected Graphic Graphic;
-    [Space]
-    [SerializeField] private Design.ColorType ActiveColor = Design.ColorType.Use;
-    [SerializeField] private Design.ColorType DefaultColor = Design.ColorType.NoUse;
+    [SerializeField ] private Animator Animator;
+    private bool Pressed = false;
+    private bool MouseCaptured = false;
 
     private void OnDisable()
     {
-        switch (DefaultColor)
-        {
-            case Design.ColorType.Main:
-                Graphic.color = Design._MainColor;
-                break;
-            case Design.ColorType.Use:
-                Graphic.color = Design._UseColor;
-                break;
-            case Design.ColorType.NoUse:
-                Graphic.color = Design._NoUseColor;
-                break;
-            case Design.ColorType.Informational:
-                Graphic.color = Design._InformationalColor;
-                break;
-        }
+        Animator.SetInteger("state", 0);
+        Pressed = false;
+        MouseCaptured = false;
     }
 
-    private void Awake()
+    public void OnPointerDown(PointerEventData eventData)
     {
-        if (Graphic == null)
-        {
-            Graphic = GetComponent<Graphic>();
-        }
+        Pressed = true;
+
+        Animator.SetInteger("state", 2);
+    }
+    public void OnPointerUp(PointerEventData eventData)
+    {
+        Pressed = false;
+
+        Animator.SetInteger("state", MouseCaptured ? 1 : 0);
     }
 
     public void OnPointerClick(PointerEventData eventData)
@@ -52,38 +44,15 @@ public class SimpleButton : MonoBehaviour, IPointerClickHandler, IPointerEnterHa
     }
     public void OnPointerEnter(PointerEventData eventData)
     {
-        switch (ActiveColor)
-        {
-            case Design.ColorType.Main:
-                Graphic.color = Design._MainColor;
-                break;
-            case Design.ColorType.Use:
-                Graphic.color = Design._UseColor;
-                break;
-            case Design.ColorType.NoUse:
-                Graphic.color = Design._NoUseColor;
-                break;
-            case Design.ColorType.Informational:
-                Graphic.color = Design._InformationalColor;
-                break;
-        }
+        MouseCaptured = true;
+
+        Animator.SetInteger("state", Pressed ? 2 : 1);
     }
     public void OnPointerExit(PointerEventData eventData)
     {
-        switch (DefaultColor)
-        {
-            case Design.ColorType.Main:
-                Graphic.color = Design._MainColor;
-                break;
-            case Design.ColorType.Use:
-                Graphic.color = Design._UseColor;
-                break;
-            case Design.ColorType.NoUse:
-                Graphic.color = Design._NoUseColor;
-                break;
-            case Design.ColorType.Informational:
-                Graphic.color = Design._InformationalColor;
-                break;
-        }
+        MouseCaptured = false;
+        Pressed = false;
+
+        Animator.SetInteger("state", 0);
     }
 }

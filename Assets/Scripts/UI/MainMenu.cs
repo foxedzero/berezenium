@@ -8,42 +8,100 @@ using UnityEngine.UI;
 public class MainMenu : MonoBehaviour
 {
     [SerializeField] private GameObject MainMenuPanel;
+    [SerializeField] private GameObject ResetPanel;
+
+    [SerializeField] private GameObject MapGenerationPanel;
+
+    [SerializeField] private FirstScene FirstScene;
+
     [SerializeField] private Text Loading;
     [SerializeField] private AudioSource Music;
     private bool Started = false;
 
     private void Start()
     {
+        if (!PlayerPrefs.HasKey("PlayerWinrate"))
+        {
+            PlayerPrefs.SetInt("PlayerWinrate", 0);
+            PlayerPrefs.Save();
+        }
+
+        CursorManager.SetNeedMouse(new NeedCursorOrder(), false);
+
         StartCoroutine(PlayMusic());
+
+        UserContent._Instance.UpdateMods();
     }
 
     public void StartGame()
     {
+        SaveData data = FirstScene.GetData();
+        if (data == null)
+        {
+            MapGenerationPanel.SetActive(true);
+            MainMenuPanel.SetActive(false);
+            return;
+        }
+
         if(!Started)
         {
+            SaveManager._Instance.SetData(data);
             Started = true;
             StartCoroutine(LoadScene());
         }
     }
 
+    public void AnswerSeed(bool state)
+    {
+        MapGenerationPanel.SetActive(false);
+        MainMenuPanel.SetActive(true);
+
+        if (state)
+        {
+            StartGame();
+        }
+    }
+
     public void NewGame()
     {
-        UserInteract.AskConfirm("Удалить данные", "Локальные и облачные данные игры будут удалены, как и сам игрок.\nВам снова придётся создать игрока.\nВы точно хотите этого ?", NewGame);
+        ResetPanel.SetActive(true);
+        MainMenuPanel.SetActive(false);
     }
     public void NewGame(bool state)
     {
+        ResetPanel.SetActive(false);
+        MainMenuPanel.SetActive(true);
+
         if (state)
         {
-            NtoServerInterface.DeletePlayer(FindObjectOfType<SaveManager>()._PlayerName, NewGame);
+            PlayerPrefs.SetInt("Exposition", 0);
+            PlayerPrefs.Save();
+
+            File.Delete(Path.Combine(Application.persistentDataPath, "LocalSave.json"));
+            SceneManager.LoadScene(0);
         }
     }
-    public void NewGame(string info)
-    {
-        PlayerPrefs.SetInt("Exposition", 0);
-        PlayerPrefs.Save();
 
-        File.Delete(Path.Combine(Application.persistentDataPath, "LocalSave.json"));
-        SceneManager.LoadScene(0);
+    public void ToBearRedactor()
+    {
+        SceneManager.LoadScene(5);
+    }
+
+    public void OpenModsDirectory()
+    {
+        string path = Path.Combine(Application.dataPath, UserContent._DirectoryName);
+
+        if (!Directory.Exists(path))
+        {
+            Directory.CreateDirectory(path);
+        }
+
+        Application.OpenURL(path);
+    }
+
+    public void UpdateMods()
+    {
+        UserContent._Instance.UpdateMods();
     }
 
     public void ExitGame()

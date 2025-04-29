@@ -21,8 +21,9 @@ public class ResearchWindow : DefaultWindow, ISingleOne
 
     public override string _Label => $"Исследования";
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
+        base.OnDestroy();   
         City._Research.OnReseatchUpdate -= UpdateInfo;
     }
 
@@ -108,15 +109,15 @@ public class ResearchWindow : DefaultWindow, ISingleOne
 
         Content.sizeDelta = new Vector2(0, 35 * (Facilities.Length + 1));
 
-        if(City._Research.GetResearchGoal(ResearchType) == -1)
-        {
-            info = $"Максимальный прогресс";
-        }
-        else
-        {
-            info = $"До следующего уровня: {City._Research.GetResearchGoal(ResearchType) - City._Research.GetResearch(ResearchType)}";
-        }
-        LevelFill.fillAmount = City._Research.GetResearch(ResearchType) / City._Research.GetResearchGoal(ResearchType);
+        //if(City._Research.GetResearchGoal(ResearchType) == -1)
+        //{
+        //    info = $"Максимальный прогресс";
+        //}
+        //else
+        //{
+        //    info = $"До следующего уровня: {City._Research.GetResearchGoal(ResearchType) - City._Research.GetResearch(ResearchType)}";
+        //}
+        //LevelFill.fillAmount = City._Research.GetResearch(ResearchType) / City._Research.GetResearchGoal(ResearchType);
 
 
         switch (ResearchType)
@@ -125,10 +126,10 @@ public class ResearchWindow : DefaultWindow, ISingleOne
                 info += $"\n\n1 Уровень: Аккумулятор\n\n2 Уровень: Увеличение КПД\n\n3 Уровень: Березениумные электростанции";
                 break;
             case CityResearch.ResearchType.Cold:
-                info += $"\n\n1 Уровень: Обогреватели\n\n2 Уровень: Уличные отопители (не реализован еще)\n\n3 Уровень: Центральное отопление (не реализован еще)";
+                info += $"\n\n1 Уровень: Обогреватели\n\n2 Уровень: Центральное отопление (не реализован еще)\n\n3 Уровень:  Уличные отопители (не реализован еще)";
                 break;
             case CityResearch.ResearchType.Medicine:
-                info += $"\n\n1 Уровень: Препараты против спячки (не реализован еще)\n\n2 Уровень: Увеличение качества лечения\n\n3 Уровень: Стимуляторы (не реализован еще)";
+                info += $"\n\n1 Уровень: Стимуляторы \n\n2 Уровень: Увеличение качества лечения\n\n3 Уровень: Препараты против спячки (не реализован еще)";
                 break;
             case CityResearch.ResearchType.Travels:
                 info += $"\n\n1 Уровень: Утеплённое снаряжение разведчиков\n\n2 Уровень: Снегоходы разведчикам\n\n3 Уровень: Космолёт";
@@ -137,13 +138,13 @@ public class ResearchWindow : DefaultWindow, ISingleOne
                 info += $"\n\n1 Уровень: Многоэтажка\n\n2 Уровень: Повышение хлодостойкости\n\n3 Уровень: Особняк (не реализован еще)";
                 break;
             case CityResearch.ResearchType.Food:
-                info += $"\n\n1 Уровень: Увеличение хладостойкости\n\n2 Уровень: Увеличение производительности\n\n3 Уровень: Киберпасека (не реализован еще)";
+                info += $"\n\n1 Уровень: Увеличение хладостойкости и продуктивности\n\n2 Уровень: Экопасека (не реализован еще)\n\n3 Уровень: Киберпасека (не реализован еще)";
                 break;
             case CityResearch.ResearchType.Production:
-                info += $"\n\n1 Уровень: Завод энергомёда\n\n2 Уровень: Уменьшение затрат\n\n3 Уровень: Завод двойной обработки березениума (не реализован еще)";
+                info += $"\n\n1 Уровень: Завод энергомёда\n\n2 Уровень: Увеличение КПД\n\n3 Уровень: Завод двойной обработки березениума (не реализован еще)";
                 break;
             case CityResearch.ResearchType.Mining:
-                info += $"\n\n1 Уровень: Увеличение хладостойкости и добыча березениума\n\n2 Уровень: Увеличение количества и скорости добычи\n\n3 Уровень: Сканер месторождений (не реализован еще)";
+                info += $"\n\n1 Уровень: Увеличение хладостойкости и объема добычи\n\n2 Уровень: добыча березениума \n\n3 Уровень: Увеличение количества и скорости добычи";
                 break;
         }
 

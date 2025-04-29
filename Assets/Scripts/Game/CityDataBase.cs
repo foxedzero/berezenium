@@ -1,5 +1,4 @@
 using UnityEngine;
-using System.IO;
 
 public class CityDataBase : MonoBehaviour
 {
@@ -64,6 +63,8 @@ public class CityDataBase : MonoBehaviour
             {
                 Bears = StaticTools.ExpandMassive(Bears, bear);
 
+                City._CitySchedule._Schedules[0].RegisterBear(bear, false);
+
                 if (OnBearChanges != null)
                 {
                     OnBearChanges.Invoke();
@@ -111,7 +112,14 @@ public class CityDataBase : MonoBehaviour
         Bears = new Bear[saveData.Bears.Length];
         for(int i = 0; i < saveData.Bears.Length; i++)
         {
-            Bears[i] = new Bear();
+            if (saveData.Bears[i].Contains("WorkMP"))
+            {
+                Bears[i] = new SuperBear();
+            }
+            else
+            {
+                Bears[i] = new Bear();
+            }
             Bears[i]._SaveInfo = saveData.Bears[i];
         }
 
@@ -119,7 +127,6 @@ public class CityDataBase : MonoBehaviour
         for(int i = 0; i < saveData.Facilities.Length; i++)
         {
             Facilities[i] = FacilityBuilder.Load(saveData.Facilities[i]);
-
         }
     }
 }

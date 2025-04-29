@@ -19,6 +19,11 @@ public class CursorManager : MonoBehaviour
 
     public static void SetNeedMouse(NeedCursorOrder needMouse, bool remove)
     {
+        if(Instance == null)
+        {
+            return;
+        }
+
         if (remove)
         {
             Instance.NeedMouse = StaticTools.RemoveFromMassive(Instance.NeedMouse, needMouse);
@@ -27,8 +32,8 @@ public class CursorManager : MonoBehaviour
         {
             Instance.NeedMouse = StaticTools.ExpandMassive(Instance.NeedMouse, needMouse);
         }
-
-        if(Instance.NeedMouse.Length > 0)
+        
+        if (Instance.NeedMouse.Length > 0)
         {
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;

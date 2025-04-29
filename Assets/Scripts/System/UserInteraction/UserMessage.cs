@@ -23,7 +23,7 @@ public class UserMessage : UserAction
 
     private IEnumerator Resize()
     {
-        float width = Mathf.Clamp(Info.preferredWidth + 50, 250, 700);
+        float width = Mathf.Clamp(Info.preferredWidth + 50, 300, 700);
         width = Mathf.Max(width, Label.preferredWidth);
         RectTransform.sizeDelta = new Vector2(width, 80);
 
@@ -32,9 +32,9 @@ public class UserMessage : UserAction
 
         yield return new WaitForEndOfFrame();
 
-        float height = Mathf.Clamp(Info.preferredHeight + 100, 250, 700);
-        RectTransform.sizeDelta = new Vector2(width, height + 50);
-        Content.sizeDelta = new Vector2(0, Mathf.Max(Info.preferredHeight, height - 115));
+        float height = Mathf.Clamp(Info.preferredHeight + 115, 100, 700);
+        RectTransform.sizeDelta = new Vector2(width, height + 40);
+        Content.sizeDelta = new Vector2(0, Mathf.Max(Info.preferredHeight - 15, height - 115));
 
         position = CalculatePosition() + new Vector2(RectTransform.sizeDelta.x / 2, -RectTransform.sizeDelta.y / 2);
 

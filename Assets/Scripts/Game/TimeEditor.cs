@@ -2,6 +2,8 @@ using UnityEngine;
 
 public class TimeEditor : MonoBehaviour
 {
+    [SerializeField] private Weather Weather;
+
     [SerializeField] private int TimeIndex;
     [SerializeField] private bool Menued;
     [SerializeField] private bool Paused;
@@ -29,7 +31,17 @@ public class TimeEditor : MonoBehaviour
         }
         set
         {
+            if (City._Factors._GameEnded)
+            {
+                value = true;
+            }
+
             Paused = value;
+
+            if (Paused)
+            {
+                NewTutorialSystem.Instance.GamePaused();
+            }
 
             UpdateTime();
         }
@@ -55,6 +67,29 @@ public class TimeEditor : MonoBehaviour
 
     private void UpdateTime()
     {
+        if (!CameraChanger.Instance._MapCamera)
+        {
+            Paused = false;
+            TimeIndex = 0;
+
+            if (Menued)
+            {
+                Time.timeScale = 0;
+            }
+            else
+            {
+                Time.timeScale = 1;
+            }
+            if (OnTimeUpdate != null)
+            {
+                OnTimeUpdate.Invoke();
+            }
+
+            Weather.FreezeSnow(gameObject, true);
+
+            return;
+        }
+
         if (Menued || Paused)
         {
             Time.timeScale = 0;
@@ -78,7 +113,9 @@ public class TimeEditor : MonoBehaviour
             }
         }
 
-        if(OnTimeUpdate != null)
+        Weather.FreezeSnow(gameObject, !Paused);
+
+        if (OnTimeUpdate != null)
         {
             OnTimeUpdate.Invoke();
         }
@@ -86,6 +123,11 @@ public class TimeEditor : MonoBehaviour
 
     private void Update()
     {
+        if (!CameraChanger.Instance._MapCamera)
+        {
+            return;
+        }
+
         if (InputManager.GetButtonDown(InputManager.ButtonEnum.Pause))
         {
             _Paused = !Paused;

@@ -1,15 +1,16 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.EventSystems;
+using UnityEngine.UIElements;
+using static UnityEngine.Rendering.DebugUI;
 
-public class Constructor : MonoBehaviour
+public class Constructor : MonoBehaviour, ICancelable
 {
     public enum ConstructCategory { Электроэнергия, Жилище, Производство, Добыча, Пища, Медицина, Прочее }
 
     [SerializeField] private GameObject DemolishEffect;
     [SerializeField] private GameObject BuildEffect;
-
-    [SerializeField] private MeshRenderer GridRenderer;
 
     [SerializeField] private ConstructInfo ConstructProject;
     [SerializeField] private ConstructInfo[] Constructions = new ConstructInfo[0];
@@ -17,16 +18,19 @@ public class Constructor : MonoBehaviour
 
     [SerializeField] private LayerMask ConstructionMask;
     [SerializeField] private LayerMask TreeMask;
-    [SerializeField] private GameObject PlaceMarker;
+    [SerializeField] private Transform PlaceMarker;
     [SerializeField] private MeshRenderer Renderer;
-    [SerializeField] private Material[] MarkerMaterials;
+    [SerializeField] private Material MarkerMaterial;
     [SerializeField] private Grid Grid;
+    [SerializeField] private GameObject GridObject;
 
     private ConstructInfo Constructing = null;
     private Vector3Int Position = new Vector3Int(0, 0);
     private int Direction = 0;
     private bool PlaceLocked = false;
     private UserConfirm Ask = null;
+
+    private int MapSize = 0;
 
     private ResourceField ResourceField = null;
 
@@ -47,21 +51,54 @@ public class Constructor : MonoBehaviour
         {
             Constructing = value;
 
+            if(value != null && value.Name == "Барак")
+            {
+                NewTutorialSystem.Instance.BarakSelected();
+            }
+
             Direction = 0;
 
             if (Constructing != null)
             {
                 UnlockPlacer();
-                GridRenderer.enabled = true;
-                PlaceMarker.SetActive(true);
-                PlaceMarker.transform.localScale = new Vector3(Constructing.Sizes.x, 0.2f, Constructing.Sizes.y);
-                PlaceMarker.transform.localEulerAngles = new Vector3(0, 90 * Direction, 0);
+
+                if(PlaceMarker != null)
+                {
+                    Destroy(PlaceMarker.gameObject);
+                }
+
+                PlaceMarker = Instantiate(Constructing.Preview).transform;
+                GridObject.SetActive(true);
+
+                CancelQueue.Register(this, false);
             }
             else
             {
-                GridRenderer.enabled = false;
-                PlaceMarker.SetActive(false);
+                if (PlaceMarker != null)
+                {
+                    Destroy(PlaceMarker.gameObject);
+                }
+
+                GridObject.SetActive(false);
+
+                CancelQueue.Register(this, true);
             }
+        }
+    }
+
+    private void Start()
+    {
+        switch (SaveManager._Instance._SaveData.MapSize)
+        {
+            case 0:
+                MapSize = 150;
+                break;
+            case 1:
+                MapSize = 175;
+                break;
+            case 2:
+                MapSize = 200;
+                break;
         }
     }
 
@@ -77,27 +114,28 @@ public class Constructor : MonoBehaviour
             return;
         }
 
-        if(InputManager.GetButtonDown(InputManager.ButtonEnum.Cancel) || Input.GetKeyDown(KeyCode.Mouse1))
+        Vector3Int position = Grid._Point;
+
+        if (Physics.BoxCast(position + Vector3.up * 50, new Vector3(Constructing.Sizes.x/2, 0.01f, Constructing.Sizes.y/2), Vector3.down, out RaycastHit hit22, Quaternion.Euler(0, 90 * Direction, 0), 100, 128))
         {
-            _Constructing = null;
-            return;
+            position.y = Mathf.RoundToInt( hit22.point.y);
         }
 
         if (!PlaceLocked)
         {
-            PlaceMarker.transform.position = Grid._Point;
-            PlaceMarker.transform.localEulerAngles = new Vector3(0, 90 * Direction, 0);
+            PlaceMarker.position = Grid._Point;
+            PlaceMarker.localEulerAngles = new Vector3(0, 90 * Direction, 0);
         }
 
         if (Constructing.Category == ConstructCategory.Добыча && Constructing.MiningResource != CityStorage.ResourceType.Wood)
         {
             if (!PlaceLocked)
             {
-                PlaceMarker.transform.position = Grid._Point;
-                PlaceMarker.transform.localEulerAngles = new Vector3(0, 90 * Direction, 0);
+                PlaceMarker.position = position;
+                PlaceMarker.localEulerAngles = new Vector3(0, 90 * Direction, 0);
             }
 
-            Collider[] colliders = Physics.OverlapBox(Grid._Point, new Vector3(Constructing.Sizes.x / 2f, 40, Constructing.Sizes.y / 2f), Quaternion.Euler(0, 90 * Direction, 0), ConstructionMask);
+            Collider[] colliders = Physics.OverlapBox(position, new Vector3(Constructing.Sizes.x / 2f, 40, Constructing.Sizes.y / 2f), Quaternion.Euler(0, 90 * Direction, 0), ConstructionMask);
             bool finded = false;
             foreach (Collider collider in colliders)
             {
@@ -105,9 +143,9 @@ public class Constructor : MonoBehaviour
                 if (field != null && field._ResourceType == Constructing.MiningResource)
                 {
                     finded = true;
-                    Renderer.material = MarkerMaterials[0];
-                    PlaceMarker.transform.position = field.transform.position;
-                    PlaceMarker.transform.rotation = field.transform.rotation;
+                    MarkerMaterial.color = new Color(0.4074746f, 0.3999999f, 0.8f, 0.85f);
+                    PlaceMarker.position = field.transform.position;
+                    PlaceMarker.rotation = field.transform.rotation;
 
                     if (CheckClick() && Ask == null)
                     {
@@ -129,30 +167,43 @@ public class Constructor : MonoBehaviour
 
             if (!finded)
             {
-                Renderer.material = MarkerMaterials[1];
+                MarkerMaterial.color = new Color(0.8f, 0, 0, 0.85f);
             }
         }
-        else
-            if (Grid._PointAtGrid)
+        else if(Grid._PointAtGrid)
         {
             if (InputManager.GetButtonDown(InputManager.ButtonEnum.Rotate))
             {
                 Direction = (Direction + 1) % 4;
             }
 
-            if (Physics.CheckBox(Grid._Point, new Vector3(Constructing.Sizes.x / 2f, 40, Constructing.Sizes.y / 2f), Quaternion.Euler(0, 90 * Direction, 0), ConstructionMask))
+            Vector4 endpoints;
+            if (Direction % 2 != 0)
             {
-                Renderer.material = MarkerMaterials[1];
+                endpoints = new Vector4(Grid._Point.x + Constructing.Sizes.y / 2f, Grid._Point.x - Constructing.Sizes.y / 2f , Grid._Point.z + Constructing.Sizes.x / 2f , Grid._Point.z - Constructing.Sizes.x / 2f );
             }
             else
             {
-                Renderer.material = MarkerMaterials[0];
+                endpoints = new Vector4(Grid._Point.x + Constructing.Sizes.x / 2f, Grid._Point.x - Constructing.Sizes.x / 2f , Grid._Point.z + Constructing.Sizes.y / 2f, Grid._Point.z - Constructing.Sizes.y / 2f + 1);
+            }
+
+            if (Physics.CheckBox(Grid._Point, new Vector3(Constructing.Sizes.x / 2f + 1.25f, 40, Constructing.Sizes.y / 2f + 1.25f), Quaternion.Euler(0, 90 * Direction, 0), ConstructionMask))
+            {
+                MarkerMaterial.color = new Color(0.8f, 0, 0, 0.85f);
+            }
+            else if(endpoints.x > MapSize / 2f || endpoints.y < -MapSize / 2f || endpoints.z > MapSize / 2f || endpoints.w < -MapSize / 2f)
+            {
+                MarkerMaterial.color = new Color(0.8f, 0, 0, 0.85f);
+            }
+            else
+            {
+                MarkerMaterial.color = new Color(0.4074746f, 0.3999999f, 0.8f, 0.85f);
 
                 if (CheckClick() && Ask == null)
                 {
                     if (InputManager.GetButtonDown(InputManager.ButtonEnum.Interact))
                     {
-                        Position = Grid._Point;
+                        Position = position;
 
                         PlaceLocked = true;
 
@@ -162,6 +213,11 @@ public class Constructor : MonoBehaviour
                 }
             }
         }
+    }
+
+    public void Cancel()
+    {
+        _Constructing = null;
     }
 
     public void UnlockPlacer()
@@ -180,9 +236,21 @@ public class Constructor : MonoBehaviour
         {
             if (City._Storage._Wood >= Constructing.WoodCost && City._Storage._Metal >= Constructing.MetalCost && City._Storage._Berezenium >= Constructing.BerezenuimCost)
             {
-                City._Storage._Wood -= Constructing.WoodCost;
-                City._Storage._Metal -= Constructing.MetalCost;
-                City._Storage._Berezenium -= Constructing.BerezenuimCost;
+                if (Constructing.WoodCost > 0)
+                {
+                    City._CityStatistics.AddStatistic(new CityStatistics.Statistic($"проект {Constructing.Name} #{City._DataBase._Facilities.Length}", (int)(City._Time._WorldTime / 60), -Constructing.WoodCost, CityStorage.ResourceType.Wood));
+                    City._Storage._Wood -= Constructing.WoodCost;
+                }
+                if (Constructing.MetalCost > 0)
+                {
+                    City._CityStatistics.AddStatistic(new CityStatistics.Statistic($"проект {Constructing.Name} #{City._DataBase._Facilities.Length}", (int)(City._Time._WorldTime / 60), -Constructing.MetalCost, CityStorage.ResourceType.Metal));
+                    City._Storage._Metal -= Constructing.MetalCost;
+                }
+                if (Constructing.BerezenuimCost > 0)
+                {
+                    City._CityStatistics.AddStatistic(new CityStatistics.Statistic($"проект {Constructing.Name} #{City._DataBase._Facilities.Length}", (int)(City._Time._WorldTime / 60), -Constructing.BerezenuimCost, CityStorage.ResourceType.Berezenium));
+                    City._Storage._Berezenium -= Constructing.BerezenuimCost;
+                }
 
                 if (Constructing.Category == ConstructCategory.Добыча)
                 {
@@ -193,14 +261,12 @@ public class Constructor : MonoBehaviour
                     (Build(ConstructProject, Position, Direction) as ConstructionProject).SetInfo(Constructing);
                 }
 
-                foreach (Collider collider in Physics.OverlapBox(Position, new Vector3(Constructing.Sizes[0] / 2, 5, Constructing.Sizes[1] / 2), Quaternion.Euler(0, Direction * 90, 0), TreeMask))
+                if (Constructing.Name == "Барак")
                 {
-                    Destroy(collider.gameObject);
+                    NewTutorialSystem.Instance.BarakSetuped();
                 }
 
-                Instantiate(BuildEffect, Position + Vector3Int.up * 6, Quaternion.EulerAngles(-90, 0, 0));
-
-                City._CityMessenger.SetMessage(new CityMessenger.CityMessage("Проект начат", $"Здание \"{Constructing.Name}\" на x{Position.x} z{Position.z} начало строиться.\nПожалуйста назначте конструкторов для постройки.\nПри нормальных условиях, здание будет готово через {Constructing.BuildWork} дней"), false);
+                Instantiate(BuildEffect, Position + Vector3Int.up * 6, Quaternion.Euler(-90, 0, 0));
                 _Constructing = null;
             }
             else
@@ -210,17 +276,6 @@ public class Constructor : MonoBehaviour
         }
 
         UnlockPlacer();
-    }
-
-    public void BuildWorkDayPassed()
-    {
-        foreach(Facility facility in City._DataBase._Facilities)
-        {
-            if(facility is ConstructionProject)
-            {
-                (facility as ConstructionProject).DayPassed();
-            }
-        }
     }
 
     private bool CheckClick()
@@ -247,9 +302,9 @@ public class Constructor : MonoBehaviour
     {
         Facility facility = Instantiate(info.Prefab, Map).GetComponent<Facility>();
 
-        if(facility is ExsaustProducer)
+        if(facility is ResourceAssimilator)
         {
-            (facility as ExsaustProducer).SetField(field);
+            (facility as ResourceAssimilator).SetField(field);
         }
 
         facility.transform.position = position;
@@ -258,27 +313,25 @@ public class Constructor : MonoBehaviour
 
         facility._ConstructInfo = info;
 
-        foreach(Collider collider in Physics.OverlapBox(facility.transform.position, new Vector3(info.Sizes[0]/ 2, 5, info.Sizes[1] / 2), Quaternion.Euler(0, direction * 90, 0), TreeMask))
-        {
-            Destroy(collider.gameObject);
-        }
-
         City._DataBase.RegisterFacility(facility, false);
+
+        facility.AutoAssign();
 
         return facility;
     }
 
     public Facility Load(string data)
     {
-        string type = StaticTools.GetParameter(data, "Type");
-        string[] transform = StaticTools.GetParameter(data, "Transform").Split(";");
+        Dictionary<string, string> parameters = StaticTools.GetParameters(data);
 
-        if(type == "ConstructProject")
+        string[] transform = parameters["Transform"].Split(";");
+
+        if (parameters["Type"] == "ConstructProject")
         {
-            string construct = StaticTools.GetParameter(data, "Construct");
+            string construct = parameters["Construct"];
 
             ConstructionProject facility = Instantiate(ConstructProject.Prefab, Map).GetComponent<ConstructionProject>();
-            facility.transform.position = new Vector3(int.Parse(transform[0]), 0, int.Parse(transform[1]));
+
             facility.transform.localEulerAngles = new Vector3(0, 90 * int.Parse(transform[2]), 0);
             facility._ConstructInfo = ConstructProject;
 
@@ -287,15 +340,17 @@ public class Constructor : MonoBehaviour
                 if (consturct.Prefab.name == construct)
                 {
                     facility.SetInfo(consturct);
-
-                    foreach (Collider collider in Physics.OverlapBox(facility.transform.position, new Vector3(consturct.Sizes[0] / 2, 5, consturct.Sizes[1] / 2), Quaternion.Euler(0, Direction * 90, 0), TreeMask))
-                    {
-                        Destroy(collider.gameObject);
-                    }
-
                     break;
                 }
             }
+
+            Vector3Int position = new Vector3Int(int.Parse(transform[0]), 0, int.Parse(transform[1]));
+            if (Physics.BoxCast(position + Vector3.up * 50, new Vector3(facility._Construction.Sizes.x / 2, 0.01f, facility._Construction.Sizes.y / 2), Vector3.down, out RaycastHit hit22, facility.transform.rotation, 100, 128))
+            {
+                position.y = Mathf.RoundToInt(hit22.point.y);
+            }
+
+            facility.transform.position = position;
 
             facility._SaveInfo = data;
 
@@ -305,18 +360,20 @@ public class Constructor : MonoBehaviour
         {
             foreach (ConstructInfo consturct in Constructions)
             {
-                if (consturct.Prefab.name == type)
+                if (consturct.Prefab.name == parameters["Type"])
                 {
                     Facility facility = Instantiate(consturct.Prefab, Map).GetComponent<Facility>();
-                    facility.transform.position = new Vector3(int.Parse(transform[0]), 0, int.Parse(transform[1]));
                     facility.transform.localEulerAngles = new Vector3(0, 90 * int.Parse(transform[2]), 0);
                     facility._ConstructInfo = consturct;
                     facility._SaveInfo = data;
 
-                    foreach (Collider collider in Physics.OverlapBox(facility.transform.position, new Vector3(consturct.Sizes[0] / 2, 5, consturct.Sizes[1] / 2), Quaternion.Euler(0, Direction * 90, 0), TreeMask))
+                    Vector3Int position = new Vector3Int(int.Parse(transform[0]), 0, int.Parse(transform[1]));
+                    if (Physics.BoxCast(position + Vector3.up * 50, new Vector3(consturct.Sizes.x / 2, 0.01f, consturct.Sizes.y / 2), Vector3.down, out RaycastHit hit22, facility.transform.rotation, 100, 128))
                     {
-                        Destroy(collider.gameObject);
+                        position.y = Mathf.RoundToInt(hit22.point.y);
                     }
+
+                    facility.transform.position = position;
 
                     return facility;
                 }
@@ -341,12 +398,12 @@ public class Constructor : MonoBehaviour
         public CityResearch.ResearchType Research;
         public int ResearchLevel;
 
-        public float BuildSkill;
         public float BuildWork;
         public float WoodCost;
         public float MetalCost;
         public float BerezenuimCost;
 
         public GameObject Prefab;
+        public GameObject Preview;
     }
 }

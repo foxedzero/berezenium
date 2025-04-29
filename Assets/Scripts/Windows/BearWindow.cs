@@ -5,39 +5,43 @@ using UnityEngine.UI;
 
 public class BearWindow : DefaultWindow
 {
-    [SerializeField] private Image Icon;
+    [SerializeField] private Image HeadIcon;
+    [SerializeField] private Image FaceIcon;
+    [SerializeField] private Image BrowsIcon;
+
     [SerializeField] private Text Name;
+
     [SerializeField] private Text HpText;
-    [SerializeField] private Text SatisText;
-    [SerializeField] private Text SkillText;
+    [SerializeField] private Text StressText;
+    [SerializeField] private Text TiredText;
+    [SerializeField] private Text WorkText;
+
     [SerializeField] private Text SpecializationText;
     [SerializeField] private Text AddictionalText;
     [SerializeField] private Text HomeText;
-    [SerializeField] private Text WorkText;
+    [SerializeField] private Text FacilityText;
     [SerializeField] private Text ColdText;
+    [SerializeField] private Text ScheduleText;
     [SerializeField] private Bear Bear;
+
     [SerializeField] private Image HpBar;
-    [SerializeField] private Image SatisBar;
-    [SerializeField] private Image SkillBar;
-    [SerializeField] private Tipper SatisfactionTip;
-    [SerializeField] private Tipper SkillTip;
+    [SerializeField] private Image StressBar;
+    [SerializeField] private Image HeatBar;
+    [SerializeField] private Image TiredBar;
+    [SerializeField] private Image WorkBar;
     [SerializeField] private Tipper ColdTip;
+    [SerializeField] private Tipper StressTip;
+    [SerializeField] private Tipper WorkTip;
 
     public override string _Label => $"информация о {Bear._Name}";
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
+        base.OnDestroy();
         if(Bear != null)
         {
             Bear.OnSmthChange -= UpdateInfo;
         }
-
-        City._Time.DayChanged -= UpdateInfo;
-    }
-
-    private void Start()
-    {
-        City._Time.DayChanged += UpdateInfo;
     }
 
     public void SetInfo(Bear bear)
@@ -49,6 +53,18 @@ public class BearWindow : DefaultWindow
 
         Bear = bear;
 
+        foreach(Window window in Lister._Windows)
+        {
+            if(window is BearWindow && this != window)
+            {
+                if((window as BearWindow).Bear == Bear)
+                {
+                    window.Close();
+                    break;
+                }
+            }
+        }
+
         Bear.OnSmthChange += UpdateInfo;
 
         UpdateInfo();
@@ -58,51 +74,73 @@ public class BearWindow : DefaultWindow
     {
         Name.text = Bear._Name;
         HpText.text = $"Здоровье: {Bear._Health}/10";
-        SatisText.text = $"Счастье: {Bear._Satisfaction}/10";
-        SkillText.text = $"Опыт: {Bear._Skill}";
 
-        AddictionalText.text = $"Возраст: {Bear._Age}      Пол: {(Bear._Woman ? "Женский" : "Мужской")}";
+        StressText.text = $"Стресс: {(int)Bear._Stress}%";
+        TiredText.text = $"Усталость: {(int)(Bear._Tired * 100)}%";
+        WorkText.text = $"Работа: {(int)(Bear._Work * 100)}%";
+
+        AddictionalText.text = $"Возраст: {Bear._Age}";
         SpecializationText.text = $"Специализация: {Bear._Kasta}";
-        WorkText.text = $"Работа: {(Bear._Facility != null ? $"{Bear._Facility._ConstructInfo.Name} #{StaticTools.IndexOf(City._DataBase._Facilities, Bear._Facility)}" : "отсутствует")}";
+        FacilityText.text = $"Работа: {(Bear._Facility != null ? $"{Bear._Facility._ConstructInfo.Name} #{StaticTools.IndexOf(City._DataBase._Facilities, Bear._Facility)}" : "отсутствует")}";
         HomeText.text = $"Проживание: {(Bear._Home != null ? $"{Bear._Home._ConstructInfo.Name} #{StaticTools.IndexOf(City._DataBase._Facilities, Bear._Home)}" : "отсутствует")}";
 
-        HpBar.fillAmount = Bear._Health / 10f;
-        SatisBar.fillAmount = Bear._Satisfaction / 10f;
-        SkillBar.fillAmount = Bear._Skill / 999f;
+        ScheduleText.text = $"Распорядок: #{Bear._Schedule}";
 
-        int cold = Bear._ColdEndurance - City._Weather._Cold;
-      
-        if(cold < -2)
+        HpBar.fillAmount = Bear._Health / 10f;
+        StressBar.fillAmount = Bear._Stress / 100f;
+        HeatBar.fillAmount = Bear._HeatLevel / 10f + 0.5f;
+        TiredBar.fillAmount = Bear._Tired;
+        WorkBar.fillAmount = Bear._Work;
+
+        ColdText.text = $"Уровень тепла: {(Bear._HeatLevel > 0 ? "+" : "")}{Bear._HeatLevel}";
+
+        string info = $"Стресс медведя.\n\nСтресс - это естественная реакция организма на недостаточно комфортные условия. Если он будет критически высоким, то медведь перестанет работать. Если общий уровень стресса всех медведей достигнет максимума, это будет означать конец ваших капитанских полномочий.\n\nФакторы стресса ед/сут:";
+        foreach (CityFactors.Factor factor in Bear.GetStressFactors())
         {
-            ColdText.text = $"<color=red>{cold}</color>";
+            info += $"\n{factor}";
+        }
+        StressTip._Info = info ;
+
+        ColdTip._Info = $"Уровень тепла.\n\nЕсли температура будет ниже нуля, то медведь начнёт терять здоровье." +
+            $"\n\nХладостойкость от сытости: {Mathf.RoundToInt(2 * City._Foodstream._Saturation)}" +
+            $"\nХладостойкость помещения: {(Bear._CurrentFacility != null ? Bear._CurrentFacility._ColdEndurance : 0)}" +
+            $"\nУровень тепла окружающей среды: {-City._Weather._Cold}" +
+            $"\nИтоговый уровень тепла: {Bear._HeatLevel}";
+
+        info = $"Работоспособность медведя на работе.\n\nУчтите, что медведь, работающий не по специальности, в два раза менее эффективен на занимаемом им посту.\n\nФакторы работоспособности:";
+        foreach (CityFactors.Factor factor in Bear.GetWorkFactors())
+        {
+            info += $"\n{factor}";
+        }
+
+        WorkTip._Info = info;
+
+        BearLook bearLook = null;
+        if (Bear is SuperBear)
+        {
+            bearLook = City._BearObjectioner.GetBearIcon(Bear as SuperBear);
         }
         else
         {
-            ColdText.text = $"{cold}";
+            bearLook = City._BearObjectioner.GetBearIcon(Bear._Face, Bear._Brows, Bear._BodyColor);
         }
 
-        ColdTip._Info = $"Уровень тепла.\n\nМедведи сами по себе неплохо приспособлены к холоду, но при уровне тепла ниже -2, начнут терять здоровье и жаловаться на холод." +
-            $"\nЕсли уровень упадет ниже -5, то медведь будет терять здоровье в два раза больше." +
-            $"\n\nХладостойкость дома: {(Bear._Home != null ? Bear._Home._ColdEndurance : 0)}" +
-            $"\nХладостойкость места работы: {(Bear._Facility != null ? Bear._Facility._ColdEndurance : 0)}" +
-            $"\nИтоговая хладостойкость: {Bear._ColdEndurance}" +
-            $"\nУровень тепла окружающей среды: {-City._Weather._Cold}";
-
-        string info = $"Удовлетворённость медведя, за ней стоит следить.\n\nЕсли все медведи в городе будут недовольны, то краток путь вашего капитанства.\n\nФакторы счастья:";
-        foreach(CityFactors.Factor factor in Bear.GetSatisfactionFactors())
+        if (bearLook.Face == null)
         {
-            info += $"\n{factor}";
+            HeadIcon.sprite = bearLook.Head;
+            HeadIcon.color = new Color(1, 1, 1, 1);
+            FaceIcon.color = new Color(0, 0, 0, 0);
+            BrowsIcon.color = new Color(0, 0, 0, 0);
         }
-
-        SatisfactionTip._Info = info;
-
-        info = $"Значение опыта медведя определяет его эффективность на работе.\n\nСтоит понимать, что медведь работающий не по специальности получает штраф эффективности - 0.25x.\n\nБазовый опыт растёт на работе.\n\nБазовый опыт не сможет превысить 999 ед.\n\nФакторы опыта:";
-        foreach (CityFactors.Factor factor in Bear.GetSkillFactors())
+        else
         {
-            info += $"\n{factor}";
+            HeadIcon.sprite = bearLook.Head;
+            HeadIcon.color = bearLook.SkinColor;
+            FaceIcon.sprite = bearLook.Face;
+            BrowsIcon.sprite = bearLook.Brows;
+            FaceIcon.color = new Color(1, 1, 1, 1);
+            BrowsIcon.color = new Color(1, 1, 1, 1);
         }
-
-        SkillTip._Info = info;
     }
 
     public void SelectWork()
@@ -114,31 +152,46 @@ public class BearWindow : DefaultWindow
         }
         else
         {
-            UserInteract.AskVariants("", new string[] { "Назначить" }, new int[] { 2 }, RightMouseWork);
+            RightMouseWork(2);
         }
     }
+
+    public void SelectSchedule()
+    {
+        string[] variants = new string[City._CitySchedule._Schedules.Length];
+        int[] indexes = new int[variants.Length];
+        for (int i = 0; i < variants.Length; i++)
+        {
+            variants[i] = $"Расписание #{City._CitySchedule._Schedules[i]._Index}";
+            indexes[i] = i;
+        }
+
+        UserInteract.AskVariants("Назначить", variants, indexes, SelectSchedule);
+    }
+    public void SelectSchedule(int index)
+    {
+        City._CitySchedule._Schedules[Bear._Schedule].RegisterBear(Bear, true);
+        Bear._Schedule = index;
+        City._CitySchedule._Schedules[Bear._Schedule].RegisterBear(Bear, false);
+    }
+
     public void RightMouseWork(int index)
     {
         switch (index)
         {
             case 0:
-                FindObjectOfType<WindowCreator>().CreateWindow<FacilityWindow>().SetInfo(Bear._Facility);
+                WindowCreator.CreateWindow<FacilityWindow>().SetInfo(Bear._Facility);
                 break;
             case 1:
                 Bear._Facility.AssignBear(Bear, true);
                 break;
             case 2:
-                UserInteract.AskFacility("Назначить медведя", SetWork);
+                UserInteract.AskFacility("Назначить работу", SetFacility, UserFacility.Sorting.Kasta, Bear._Kasta.ToString(), exlude: Bear._Facility != null ? new int[] {StaticTools.IndexOf(City._DataBase._Facilities, Bear._Facility)} : null);
                 break;
         }
     }
-    public void SetWork(Facility facility)
+    public void SetFacility(Facility facility)
     {
-        if(Bear._Facility != null)
-        {
-            Bear._Facility.AssignBear(Bear, true);
-        }
-
         facility.AssignBear(Bear, false);
     }
 
@@ -151,7 +204,7 @@ public class BearWindow : DefaultWindow
         }
         else
         {
-            UserInteract.AskVariants("", new string[] { "Назначить" }, new int[] { 2 }, RightMouseHome);
+            RightMouseHome(2);
         }
     }
     public void RightMouseHome(int index)
@@ -159,23 +212,14 @@ public class BearWindow : DefaultWindow
         switch (index)
         {
             case 0:
-                FindObjectOfType<WindowCreator>().CreateWindow<FacilityWindow>().SetInfo(Bear._Home);
+                WindowCreator.CreateWindow<FacilityWindow>().SetInfo(Bear._Home);
                 break;
             case 1:
                 Bear._Home.AssignBear(Bear, true);
                 break;
             case 2:
-                UserInteract.AskFacility("Назначить медведя", SetHome);
+                UserInteract.AskFacility("Назначить жилище", SetFacility, UserFacility.Sorting.Type, Constructor.ConstructCategory.Жилище.ToString(), exlude: Bear._Home != null ? new int[] { StaticTools.IndexOf(City._DataBase._Facilities, Bear._Home) } : null);
                 break;
         }
-    }
-    public void SetHome(Facility facility)
-    {
-        if (Bear._Home != null)
-        {
-            Bear._Home.AssignBear(Bear, true);
-        }
-
-        facility.AssignBear(Bear, false);
     }
 }

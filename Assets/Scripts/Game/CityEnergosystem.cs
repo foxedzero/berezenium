@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using UnityEngine;
+using static Constructor;
 
 public class CityEnergosystem : MonoBehaviour
 {
@@ -6,16 +8,15 @@ public class CityEnergosystem : MonoBehaviour
     [SerializeField] private CityDataBase CityData;
 
     [SerializeField] private float StoredEnergy;
+    [SerializeField] private float CurrentEnergy;
     [SerializeField] private float EnergyCapacity;
-    [SerializeField] private float Produced;
-    [SerializeField] private float Consumed;
     [SerializeField] private float EffectivityCoefficient;
 
     public string _SaveInfo
     {
         get
         {
-            return $"{StoredEnergy};{Produced};{Consumed};{EffectivityCoefficient}";
+            return $"Stored({StoredEnergy})Energosystem({EffectivityCoefficient})";
         }
         set
         {
@@ -24,74 +25,22 @@ public class CityEnergosystem : MonoBehaviour
                 return;
             }
 
-            string[] values = value.Split(";");
+            Dictionary<string, string> parameters = StaticTools.GetParameters(value);
 
-            StoredEnergy = StaticTools.StringToFloat(values[0]);
-            Produced = StaticTools.StringToFloat(values[1]);
-            Consumed = StaticTools.StringToFloat(values[2]);
-            EffectivityCoefficient = StaticTools.StringToFloat(values[3]);
+            StoredEnergy = StaticTools.StringToFloat(parameters["Stored"]);
+            EffectivityCoefficient = StaticTools.StringToFloat(parameters["Energosystem"]);
         }
     }
-    public float _Effectivity => EffectivityCoefficient * EffectivityCoefficient;
-    public float _Consumed => Consumed;
-    public float _Produced => Produced;
-    public float[] _Potencial
+    public float _Effectivity => EffectivityCoefficient;
+    public float _CurrentEnergy
     {
         get
         {
-            float[] values = new float[4];
-
-            float honey = City._Storage._EnergyHoney;
-            float berezenium = City._Storage._Berezenium;
-            float wood = City._Storage._Wood;
-
-            foreach (Facility facility in CityData._Facilities)
-            {
-                if (facility is EnergyProcuder)
-                {
-                    switch((facility as EnergyProcuder)._Resource)
-                    {
-                        case CityStorage.ResourceType.EnergyHoney:
-                            if(honey > 0)
-                            {
-                                values[0] += (facility as EnergyProcuder)._BaseProduce * (facility as EnergyProcuder)._Effectivity * Mathf.Clamp01(honey / (facility as EnergyProcuder)._BaseConsume);
-                                honey -= (facility as EnergyProcuder)._BaseConsume * (facility._Enabled ? 1 : 0);
-                            }
-                            break;
-                        case CityStorage.ResourceType.Berezenium:
-                            if (honey > 0)
-                            {
-                                values[0] += (facility as EnergyProcuder)._BaseProduce * (facility as EnergyProcuder)._Effectivity * Mathf.Clamp01(berezenium / (facility as EnergyProcuder)._BaseConsume);
-                                berezenium -= (facility as EnergyProcuder)._BaseConsume * (facility._Enabled ? 1 : 0);
-                            }
-                            break;
-                        case CityStorage.ResourceType.Wood:
-                            if (honey > 0)
-                            {
-                                values[0] += (facility as EnergyProcuder)._BaseProduce * (facility as EnergyProcuder)._Effectivity * Mathf.Clamp01(wood / (facility as EnergyProcuder)._BaseConsume);
-                                wood -= (facility as EnergyProcuder)._BaseConsume * (facility._Enabled ? 1 : 0);
-                            }
-                            break;
-                    }
-                }
-                else
-                {
-                    values[1] += facility._EnergyConsume;
-                }
-            }
-
-            if (values[0] + StoredEnergy < values[1])
-            {
-                values[2] = (values[0] + StoredEnergy) / values[1];
-                values[3] = values[1] * values[2];
-            }
-            else
-            {
-                values[2] = 1;
-                values[3] = values[1];
-            }
-
-            return values;
+            return CurrentEnergy;
+        }
+        set
+        {
+            CurrentEnergy = value;
         }
     }
     public float _StoredEnergy
@@ -106,6 +55,31 @@ public class CityEnergosystem : MonoBehaviour
         }
     }
     public float _EnergyCapacity => EnergyCapacity;
+
+    public float CurrentProduce()
+    {
+        float value = 0;
+        foreach(Facility facility in City._DataBase._Facilities)
+        {
+            if(facility is EnergyProcuder)
+            {
+                value += (facility as EnergyProcuder)._Producing;
+            }
+        }
+
+        return value;
+    }
+    public float CurrentConsume()
+    {
+        float consume = 0;
+
+        foreach (Facility facility in CityData._Facilities)
+        {
+            consume += facility._EnergyConsume;
+        }
+
+        return consume;
+    }
 
     private void Start()
     {
@@ -122,61 +96,39 @@ public class CityEnergosystem : MonoBehaviour
             {
                 EnergyCapacity += (facility as Accumulator)._Capacity;
             }
+            else if(facility is EnergyProcuder)
+            {
+                EnergyCapacity += (facility as EnergyProcuder)._EnergyCapacity;
+            }
         }
     }
-
-    public void DayPassed()
+    public void HourPassed()
     {
-        Produced = 0;
-        Consumed = 0;
+        float current = CurrentEnergy;
+        CurrentEnergy = 0;
 
-        foreach (Facility facility in CityData._Facilities)
+        if (current + StoredEnergy <= 0)
         {
-            if(facility is EnergyProcuder)
-            {
-                switch((facility as EnergyProcuder)._Resource)
-                {
-                    case CityStorage.ResourceType.EnergyHoney:
-                        if(City._Storage._EnergyHoney > 0)
-                        {
-                            Produced += (facility as EnergyProcuder)._Produce * Mathf.Clamp01(City._Storage._EnergyHoney/(facility as EnergyProcuder)._BaseConsume);
-                            City._Storage._EnergyHoney -= (facility as EnergyProcuder)._BaseConsume * (facility._Enabled ? 1 : 0);
-                        }
-                        break;
-                    case CityStorage.ResourceType.Berezenium:
-                        if (City._Storage._Berezenium > 0)
-                        {
-                            Produced += (facility as EnergyProcuder)._Produce * Mathf.Clamp01(City._Storage._Berezenium / (facility as EnergyProcuder)._BaseConsume);
-                            City._Storage._Berezenium -= (facility as EnergyProcuder)._BaseConsume;
-                        }
-                        break;
-                    case CityStorage.ResourceType.Wood:
-                        if (City._Storage._Wood > 0)
-                        {
-                            Produced += (facility as EnergyProcuder)._Produce * Mathf.Clamp01(City._Storage._Wood / (facility as EnergyProcuder)._BaseConsume);
-                            City._Storage._Wood -= (facility as EnergyProcuder)._BaseConsume * (facility._Enabled ? 1 : 0);
-                        }
-                        break;
-                }
-            }
-            else
-            {
-                Consumed += facility._EnergyConsume;
-            }
+            EffectivityCoefficient = 0;
+            return;
         }
 
-        if (Produced + StoredEnergy < Consumed)
-        {
-            EffectivityCoefficient = (Produced + StoredEnergy) / Consumed;
-            StoredEnergy = 0;
+        float consume = CurrentConsume();
 
-            Consumed *= EffectivityCoefficient;
+        if (current + StoredEnergy < consume)
+        {
+            EffectivityCoefficient = (current + StoredEnergy) / consume;
+            EffectivityCoefficient *= City._Research.GetResearchLevel(CityResearch.ResearchType.Electricity) >= 2 ? 1.1f : 1;
+
+            City._CityStatistics.AddStatistic(new CityStatistics.Statistic($"Потребление электричества", (int)(City._Time._WorldTime / 60), -(current + StoredEnergy), CityStorage.ResourceType.Electricity));
+            StoredEnergy = 0;
         }
         else
         {
-            EffectivityCoefficient = 1;
+            EffectivityCoefficient = City._Research.GetResearchLevel(CityResearch.ResearchType.Electricity) >= 2 ? 1.1f : 1;
 
-            StoredEnergy = Mathf.Clamp( StoredEnergy + Produced - Consumed, 0, EnergyCapacity);
+            City._CityStatistics.AddStatistic(new CityStatistics.Statistic($"Потребление электричества", (int)(City._Time._WorldTime / 60), -consume, CityStorage.ResourceType.Electricity));
+            StoredEnergy = Mathf.Clamp(StoredEnergy + current - consume, 0, _EnergyCapacity);
         }
     }
 }

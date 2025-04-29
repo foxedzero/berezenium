@@ -4,34 +4,48 @@ using UnityEngine.SceneManagement;
 public class Durandal : Facility
 {
     public override bool _CanBeHeated =>false;
-    public override bool _CanBeDisabled => false;
 
     public override int _ColdEndurance => 10;
     public override float _Effectivity => 1;
     public override CityFactors.Factor[] GetEffectivityFactors()
     {
-        return new CityFactors.Factor[] {new CityFactors.Factor("Космолёт", 1, -1)};
+        return new CityFactors.Factor[] {new CityFactors.Factor("Космолёт", 1)};
     }
 
-    public override void RightMouse()
+    public override void Interact()
     {
-        UserInteract.AskVariants("Распоряжение", new string[] { "Снести", $"Вернуться домой (необходимо 100 энергомёда, в наличии: {City._Storage._EnergyHoney})" }, new int[] { 0, 1 }, RightMouseActions);
+        SoundEffector.PlayFasilityIntro(IntroSound);
+
+        string[] variants = new string[] { "Информация", "Снести", "Автоматически назначить", $"Вернуться домой (50 медведей на борту, 500 энергомёда на топливо)" };
+        int[] indexes = new int[] { -1, 0, 1, 2 };
+
+        UserInteract.AskVariants($"{ConstructInfo.Name} #{StaticTools.IndexOf(City._DataBase._Facilities, this)}", variants, indexes, RightMouseActions);
     }
     public override void RightMouseActions(int index)
     {
         switch (index)
         {
+            case -1:
+                WindowCreator.CreateWindow<FacilityWindow>().SetInfo(this);
+                break;
             case 0:
                 UserInteract.AskConfirm("Снос", $"Вы собираетесь дать распоряженио о сносе данного строения.\nПри сносе здания вы получите половину от его стоимости строительства (древесина: {ConstructInfo.WoodCost / 2f}, металл: {ConstructInfo.MetalCost / 2f}, березениум: {ConstructInfo.BerezenuimCost / 2f}).\nВы уверены, что хотите снести космолёт ?", Deconstruct);
                 break;
             case 1:
-                if(City._Storage._EnergyHoney >= 100)
+                AutoAssign();
+                break;
+            case 2:
+                if(Bears.Length < 50)
                 {
-                    UserInteract.AskConfirm("Завершение игры", "Вы готовы вернуться домой ?", EndGame);
+                    UserInteract.AskMessage("Все медведи не на борту !", $"Вам необходимо, чтобы в космолёте находилось 50 медведей.\nМы не можем оставить своих товарищей.");
+                }
+                else if(City._Storage._EnergyHoney < 500)
+                {
+                    UserInteract.AskMessage("Недостаточно ресурсов !", $"Вам необходимо иметь на складе 500 единиц энергомёда, чтобы улететь.");
                 }
                 else
                 {
-                    UserInteract.AskMessage("Недостаточно ресурсов", $"На данный момент вам не хватает {100 - City._Storage._EnergyHoney} до 500 энергомёда");
+                    UserInteract.AskConfirm("Завершение игры", "Вы готовы вернуться домой ?", EndGame);
                 }
                 break;
         }
@@ -40,17 +54,38 @@ public class Durandal : Facility
     {
         if (answer)
         {
-            SceneManager.LoadScene(3);
+            FindObjectOfType<GameEnder>().ShowPanel();
         }
     }
 
-    public override bool AssignBear(Bear bear, bool remove)
+    public override void AutoAssign()
     {
-        return false;
+        foreach (Bear bear in AssignedBears)
+        {
+            bear._Facility = null;
+        }
+        Bear[] bears = City._DataBase._Bears;
+
+        AssignedBears = new Bear[0];
+
+        for (int i = 0; i < bears.Length; i++)
+        {
+            if (bears[i]._Sally == null)
+            {
+                if (bears[i]._Facility != null)
+                {
+                    bears[i]._Facility.AssignBear(bears[i], true);
+                }
+
+                AssignedBears = StaticTools.ExpandMassive(AssignedBears, bears[i]);
+            }
+        }
+
+        SmtChanged();
     }
 
-    public override float GetPotencialEffectivity()
+    protected override void UpdateOcantovkaInfo()
     {
-        return 1;
+        OcantovkaInfo.text = $"/////////\nОбъект: {ConstructInfo.Name}\nАвтономное строение\n//////////";
     }
 }

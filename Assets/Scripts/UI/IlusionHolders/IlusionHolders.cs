@@ -72,6 +72,8 @@ public class IlusionHolders : MonoBehaviour, IPointerClickHandler, IPointerEnter
         if(OnClick != null)
         {
             OnClick.Invoke(Index);
+
+            SoundEffector.PlayUI(0);
         }
     }
     public void OnPointerEnter(PointerEventData eventData)

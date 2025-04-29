@@ -17,25 +17,6 @@ public abstract class DefaultWindow : Window, IMoveable
             return;
         }
 
-        if(newPosition.x + RectTransform.sizeDelta.x / 2 + 12.5f > 960)
-        {
-            newPosition.x = 960 - RectTransform.sizeDelta.x / 2 - 12.5f;
-        }
-        else if(newPosition.x - RectTransform.sizeDelta.x / 2 - 12.5f < -960)
-        {
-            newPosition.x = -960 + RectTransform.sizeDelta.x / 2 + 12.5f;
-        }
-
-        float screenHeight = StaticTools.ScreenHeight;
-        if (newPosition.y + RectTransform.sizeDelta.y / 2 + 12.5f > screenHeight / 2)
-        {
-            newPosition.y = screenHeight / 2 - RectTransform.sizeDelta.y / 2 - 12.5f;
-        }
-        else if (newPosition.y - RectTransform.sizeDelta.y / 2 - 12.5f < -screenHeight / 2)
-        {
-            newPosition.y = -screenHeight / 2 + RectTransform.sizeDelta.y / 2 + 12.5f;
-        }
-
         RectTransform.anchoredPosition = newPosition;
     }
 

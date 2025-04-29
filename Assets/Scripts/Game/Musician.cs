@@ -7,12 +7,36 @@ public class Musician : MonoBehaviour
 
     [SerializeField] private MusicOrder FirstMusic;
 
-    private MusicOrder[] Orders = new MusicOrder[0];
-    private AudioClip CurrentMusic = null;
+    [SerializeField] private AudioClip[] DefaultMusics;
+    [SerializeField] private int CurrentDefaultMusic;
+    [SerializeField] private float ChangeInTime = 0;
+
+    [SerializeField] private MusicOrder[] Orders = new MusicOrder[0];
+    [SerializeField] private AudioClip CurrentMusic = null;
 
     private void Start()
     {
+        if(UserContent._AudioLoader._UserMusic.Length > 0)
+        {
+            DefaultMusics = UserContent._AudioLoader._UserMusic;
+            FirstMusic.Music = DefaultMusics[0];
+        }
+
+        CurrentDefaultMusic = Random.Range(0, DefaultMusics.Length);
         SetMusic(FirstMusic, false);
+    }
+
+    private void Update()
+    {
+        if(ChangeInTime == -1)
+        {
+            return;
+        }
+
+        if (Time.unscaledTime >= ChangeInTime)
+        {
+            SetMusic(FirstMusic, false);
+        }
     }
 
     public void SetMusic(MusicOrder order, bool remove)
@@ -20,39 +44,44 @@ public class Musician : MonoBehaviour
         int index = StaticTools.IndexOf(Orders, order);
         if (remove)
         {
-            if(index > -1)
+            if (index > -1)
             {
                 Orders = StaticTools.ReduceMassive(Orders, index);
             }
         }
         else
         {
-            if(index < 0)
+            if (index < 0)
             {
                 Orders = StaticTools.ExpandMassive(Orders, order);
             }
         }
 
-        if(Orders.Length < 1)
+        if (Orders.Length < 1)
         {
             return;
         }
 
         index = 0;
-        for(int i = 0; i < Orders.Length; i++)
+        for (int i = 0; i < Orders.Length; i++)
         {
             if (Orders[i].Priority > Orders[index].Priority)
             {
                 index = i;
             }
         }
-
-        if(Orders[index].Music != CurrentMusic)
+        if (index == 0)
         {
-            CurrentMusic = Orders[index].Music;
-            StopAllCoroutines();
-            StartCoroutine(ChangeMusic());
+            CurrentDefaultMusic = (CurrentDefaultMusic + 1) % DefaultMusics.Length;
+
+            FirstMusic.Music = DefaultMusics[CurrentDefaultMusic];
         }
+
+        ChangeInTime = Time.unscaledTime + Orders[index].Music.length;
+
+        CurrentMusic = Orders[index].Music;
+        StopAllCoroutines();
+        StartCoroutine(ChangeMusic());
     }
 
     private IEnumerator ChangeMusic()

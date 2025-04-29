@@ -1,7 +1,8 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.UI;
 
-public class MapCapturer : MonoBehaviour
+public class MapCapturer : MonoBehaviour, IInteractable
 {
     [SerializeField] private Camera Camera;
     [SerializeField] int Height = 1024;
@@ -10,8 +11,32 @@ public class MapCapturer : MonoBehaviour
     private float DayTime = 0;
     private bool Captured = false;
 
+    [SerializeField] private GameObject MapViewPrefab;
+    [SerializeField] private Transform Canvas;
+    [SerializeField] private Outline Indicator;
+    [SerializeField] private Sprite ViewImage;
     [SerializeField] private Material Material;
     private Texture Texture = null;
+    private MapView Instance = null;
+
+    public bool _AbstractUse => true;
+
+    public string _Info => "Просмотреть карту";
+
+    public void Indicate(bool state) => Indicator.enabled = state;
+
+    public void Interact()
+    {
+        if(Instance == null)
+        {
+            Instance = Instantiate(MapViewPrefab, Canvas).GetComponent<MapView>();
+            Instance.SetInfo(ViewImage);
+        }
+        else
+        {
+            Destroy(Instance.gameObject);
+        }
+    }
 
     private void Start()
     {
@@ -27,13 +52,13 @@ public class MapCapturer : MonoBehaviour
             StartCoroutine(CaptureScreen());
         }
 
-        DayTime = Random.value;
+        DayTime = Random.Range(0, 1500);
         Captured = false;
     }
 
     private void Update()
     {
-        if(City._Time._DayProgress >= DayTime && !Captured)
+        if(City._Time._WorldTime % 1500 >= DayTime && !Captured)
         {
             StartCoroutine(CaptureScreen());
             Captured = true;
@@ -64,6 +89,13 @@ public class MapCapturer : MonoBehaviour
 
         Texture = texture;
         Material.SetTexture("_BaseMap", Texture);
+
+        ViewImage = Sprite.Create(texture, new Rect(0,0, Width, Height), Vector2.one / 2); 
+
+        if(Instance != null)
+        {
+            Instance.SetInfo(ViewImage);
+        }
 
         Camera.gameObject.SetActive(false);
     }

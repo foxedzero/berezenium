@@ -1,12 +1,13 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
-public class Menu : MonoBehaviour
+public class Menu : MonoBehaviour, ICancelable
 {
     [SerializeField] private GameObject MenuPanel;
     [SerializeField] private TimeEditor TimeEditor;
-    [SerializeField] private WindowCreator WindowCreator;
-    [SerializeField] private Transform Player;
+    [SerializeField] private Weather Weather;
+    [SerializeField] private Text SeedInfo;
     private bool Paused = false;
 
     private NeedCursorOrder NeedCursor = new NeedCursorOrder();
@@ -26,49 +27,26 @@ public class Menu : MonoBehaviour
             CursorManager.SetNeedMouse(NeedCursor, !Paused);
 
             TimeEditor._Menued = value;
+
+            Weather.FreezeSnow(gameObject, !Paused);
         }
     }
 
     private void Start()
     {
-        if(PlayerPrefs.GetInt("Tutorial") == -1)
-        {
-            Vector3 position = Vector3.zero;
-            for(int i = 0; i < 50; i++)
-            {
-                position = new Vector3(Random.Range(-25, 25), 0, Random.Range(-25, 25));
+        CancelQueue.Register(this, false);
 
-                if(position.magnitude > 25)
-                {
-                    break;
-                }
-            }
-
-            if(position == Vector3.zero)
-            {
-                position = new Vector3(25, 0, 25);
-            }
-
-            Player.position = position;
-            PlayerPrefs.SetInt("Tutorial", 0);
-            PlayerPrefs.Save();
-
-            Help();
-        }
+        SeedInfo.text = $"Seed: {SaveManager._Seed}";
     }
 
-    private void Update()
+    public void CopySeed()
     {
-        if (InputManager.GetButtonDown(InputManager.ButtonEnum.Cancel))
-        {
-            _Paused = !Paused;
-        }
+        GUIUtility.systemCopyBuffer = SaveManager._Seed;
     }
 
-    public void Help()
+    public void Cancel()
     {
-        _Paused = false;
-        WindowCreator.CreateWindow<TutorialWindow>();
+        _Paused = !Paused;
     }
 
     public void ExitGame()
@@ -81,18 +59,20 @@ public class Menu : MonoBehaviour
         switch (index)
         {
             case 0:
-                FindObjectOfType<SaveManager>().Save(ToMainMenu);
+                FindObjectOfType<SaveManager>().Save();
+                ToMainMenu();
                 break;
             case 1:
-                FindObjectOfType<SaveManager>().Save(ExitGame);
+                FindObjectOfType<SaveManager>().Save();
+                FullExitGame();
                 break;
         }
     }
-    public void ToMainMenu(string info)
+    public void ToMainMenu()
     {
         SceneManager.LoadScene(0);
     }
-    public void ExitGame(string info)
+    public void FullExitGame()
     {
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;

@@ -20,7 +20,7 @@ public class InputManager : MonoBehaviour
 
     public enum ButtonState { Down, Hold, Up }
     public enum AxisEnum {Horizontal, Vertical, CameraSpeedUp}
-    public enum ButtonEnum { Cancel, Interact, Return, CameraDirection, Rotate, Pause, NextTimeScale }
+    public enum ButtonEnum { Cancel, Interact, Return, CameraDirection, Rotate, Pause, NextTimeScale, ManageMode, Snowrunner, NextTip, PrevTip, ShowTutorial, CheatInput }
 
     [SerializeField] private KeyMapData KeyMap;
 #if UNITY_EDITOR
@@ -49,6 +49,15 @@ public class InputManager : MonoBehaviour
     private Button Rotate = null;
     private Button Pause = null;
     private Button NextTimeScale = null;
+    private Button ManageMode = null;
+    private Button Snowrunner = null;
+    private Button NextTip = null;
+    private Button PrevTip = null;
+    private Button ShowTutorial = null;
+    private Button CheatInput = null;
+
+    public Button _Interact => Interact;
+    public Button _ManageMode => ManageMode;
 
     private void Awake()
     {
@@ -101,6 +110,12 @@ public class InputManager : MonoBehaviour
         Rotate = new Button(KeyMap.Rotate);
         Pause = new Button(KeyMap.Pause);
         NextTimeScale = new Button(KeyMap.NextTimeScale);
+        ManageMode = new Button(KeyMap.ManageMode);
+        Snowrunner = new Button(KeyMap.Snowrunner);
+        NextTip = new Button(KeyMap.NextTip);
+        PrevTip = new Button(KeyMap.PrevTip);
+        ShowTutorial = new Button(KeyMap.ShowTutorial);
+        CheatInput = new Button(KeyMap.CheatInput);
     }
 
     public static float GetAxis(AxisEnum axis)
@@ -138,6 +153,18 @@ public class InputManager : MonoBehaviour
                 return Pause.CheckState(state);
             case ButtonEnum.NextTimeScale:
                 return NextTimeScale.CheckState(state);
+            case ButtonEnum.ManageMode:
+                return ManageMode.CheckState(state);
+            case ButtonEnum.Snowrunner:
+                return Snowrunner.CheckState(state);
+            case ButtonEnum.NextTip:
+                return NextTip.CheckState(state);
+            case ButtonEnum.PrevTip:
+                return PrevTip.CheckState(state);
+            case ButtonEnum.ShowTutorial:
+                return ShowTutorial.CheckState(state);
+            case ButtonEnum.CheatInput:
+                return CheatInput.CheckState(state);
         }
 
         Debug.LogError($"кнопка <color=white>{button}</color> не найдена");
@@ -247,6 +274,8 @@ public class InputManager : MonoBehaviour
     {
         private KeyCode[] Keys = new KeyCode[0];
 
+        public KeyCode[] _Keys => Keys;
+
         public Button(string keys) => Keys = ParseKeys(keys);
 
         public bool CheckState(ButtonState state)
@@ -339,12 +368,21 @@ public class KeyMapData
 
     public string Return = $"Return";
 
-    public string Interact = $"E F Mouse0";
+    public string NextTip = "Return";
+    public string PrevTip = $"{KeyCode.Backspace}";
+    public string ShowTutorial = "F2";
 
-    public string CameraDirection = $"LeftAlt Mouse2";
+    public string Interact = $"E Mouse0 F";
+
+    public string CameraDirection = $"LeftAlt Mouse1";
 
     public string Rotate = "R";
    
     public string Pause = "Space";
-    public string NextTimeScale = "Tab";
+    public string NextTimeScale = $"{KeyCode.Tab}";
+
+    public string ManageMode = "V C";
+    public string Snowrunner = "B";
+
+    public string CheatInput = "F1";
 }

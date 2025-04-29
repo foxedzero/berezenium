@@ -1,6 +1,7 @@
 using UnityEngine;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 
 public delegate void SimpleVoid();
 
@@ -104,6 +105,54 @@ public class StaticTools
         return -mismatch;
     }
 
+    public static bool CheckByteBool(int value, int index)
+    {
+        return (value & (int)Mathf.Pow(2, index)) > 0;
+    }
+     public static bool[] FromByteBool(int info)
+    {
+        bool[] result = new bool[8];
+
+        result[0] = (info & 1) > 0;
+        result[1] = (info & 2) > 0;
+        result[2] = (info & 4) > 0;
+        result[3] = (info & 8) > 0;
+        result[4] = (info & 16) > 0;
+        result[5] = (info & 32) > 0;
+        result[6] = (info & 64) > 0;
+        result[7] = (info & 128) > 0;
+
+        return result;
+    }
+    public static int ToByteBool(bool first = false, bool second = false, bool third = false, bool fourth = false, bool fifth = false, bool sixth = false, bool sevens = false, bool eights = false)
+    {
+        int value = 0;
+        value += first ? 1 : 0;
+        value += second ? 2 : 0;
+        value += third ? 4 : 0;
+        value += fourth ? 8 : 0;
+        value += fifth ? 16 : 0;
+        value += sixth ? 32 : 0;
+        value += sevens ? 64 : 0;
+        value += eights ? 128 : 0;
+
+        return value;
+    }
+    public static int ToByteBool(bool[] info)
+    {
+        int value = 0;
+        value += info[0] ? 1 : 0;
+        value += info[1] ? 2 : 0;
+        value += info[2] ? 4 : 0;
+        value += info[3] ? 8 : 0;
+        value += info[4] ? 16 : 0;
+        value += info[5] ? 32 : 0;
+        value += info[6] ? 64 : 0;
+        value += info[7] ? 128 : 0;
+
+        return value;
+    }
+
     static public float AverageSqrt(float value)
     {
         int seq = (int)value;
@@ -190,6 +239,60 @@ public class StaticTools
         }
 
         return info.Substring(startPosition, info.Length - startPosition);
+    }
+
+    static public Dictionary<string, string> GetParameters(string info)
+    {
+        Dictionary<string, string> parameters = new Dictionary<string, string>();
+
+        string key = "";
+
+        int open = 0;
+        string token = "";
+        foreach(char symbol in info)
+        {
+            switch (symbol)
+            {
+                case '(':
+                    if(open == 0)
+                    {
+                        key = token;
+                        token = "";
+                    }
+                    else
+                    {
+                        token += symbol;
+                    }
+
+                    open++;
+                    break;
+                case ')':
+                    open--;
+
+                    if (open == 0)
+                    {
+                        //Debug.Log($"key = {key}  token = {token}");
+                        parameters.Add(key, token);
+                        token = "";
+                        key = "";
+                    }
+                    else
+                    {
+                        token += symbol;
+                    }
+                    break;
+                default:
+                    token += symbol;
+                    break;
+            }
+        }
+
+        if(key.Length > 0)
+        {
+            parameters.Add(key, token);
+        }
+
+        return parameters;
     }
 
     static public string SetParameter(string parameter, string info, string text)
@@ -321,7 +424,7 @@ public class StaticTools
             afterDot = 0;
         }
 
-        return Mathf.Round(value * Degree(10, afterDot)) / Degree(10, afterDot);
+        return Mathf.Round(value * Mathf.Pow(10, afterDot)) / Mathf.Pow(10, afterDot);
     }
 
     static public float Degree(float value, int count)
@@ -581,9 +684,10 @@ public class StaticTools
         T[] newMassive = new T[origin.Length - 1];
 
         int newIndex = 0;
+        bool removed = false;
         for (int i = 0; i < origin.Length; i++)
         {
-            if (!origin[i].Equals(value))
+            if (!origin[i].Equals(value) || removed)
             {
                 if(newIndex >= newMassive.Length)
                 {
@@ -593,6 +697,10 @@ public class StaticTools
                 newMassive[newIndex] = origin[i];
 
                 newIndex++;
+            }
+            else
+            {
+                removed = true;
             }
         }
 
@@ -909,29 +1017,22 @@ public class ProceduralTools
 
     public static float PseudoRandom(float seed)
     {
-        float[] simpleNumbers = new float[] { 2, 3, 5, 7, 11, 13, 17, 19, 23, 29 };
+        float[] simpleNumbers = new float[] {1.33f, 1.44f, 1.7f, 2f, 2.5f, 3, 5, 7, 9.17f, 11, 13, 17 };
 
         if (seed < 0)
         {
-            seed /= -simpleNumbers[NumberSumm((seed / 3).ToString()) % 10];
+            seed /= -simpleNumbers[NumberSumm((seed / 3).ToString()) % simpleNumbers.Length];
         }
 
-        long index = NumberSumm(seed.ToString()) % 10;
+        long index = NumberSumm(seed.ToString()) % simpleNumbers.Length;
 
         int count = 0;
         while (seed >= 1)
         {
             count++;
-            seed = seed / simpleNumbers[index] + simpleNumbers[index] * 0.0005f;
+            seed = seed / simpleNumbers[index];
 
-            if (index >= simpleNumbers.Length - 1)
-            {
-                index = 0;
-            }
-            else
-            {
-                index++;
-            }
+            index = (index + 1) % simpleNumbers.Length;
         }
 
         return seed;

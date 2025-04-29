@@ -1,41 +1,93 @@
 
-using System;
+using System.Collections.Generic;
 using UnityEngine;
+using static Constructor;
 
 public class ConstructionProject : Facility
 {
     [SerializeField] private Constructor.ConstructInfo Construction;
+    [SerializeField] private Transform Box;
     [SerializeField] private float WorkLeft;
 
     [SerializeField] private ResourceField ResourceField = null;
 
-    public override bool _CanBeDisabled => false;
-
     public Constructor.ConstructInfo _Construction => Construction;
-    public float _WorkLeft => WorkLeft;
+    public float _WorkLeft
+    {
+        get
+        {
+            return WorkLeft;
+        }
+        set
+        {
+            WorkLeft = value;
+            if (WorkLeft <= 0)
+            {
+                Facility newFacility = City._Constructor.Build(Construction, new Vector3Int(Mathf.FloorToInt(transform.position.x), 0, Mathf.FloorToInt(transform.position.z)), Mathf.RoundToInt(transform.localEulerAngles.y / 90f), ResourceField);
+
+                City._CityMessenger.AddMessage(new CityMessenger.CityMessage($"Постройка \"{Construction.Name}\" завершена", $"Здание наконец построено, пора укомплектовать персонал."));
+
+                foreach (Bear bear in Bears)
+                {
+                    bear._CurrentFacility = newFacility;
+                }
+
+                Destroy(gameObject);
+            }
+
+            SmtChanged();
+        }
+    }
 
     public void SetInfo(Constructor.ConstructInfo info, ResourceField field = null)
     {
         ResourceField = field;
         Construction = info;
         WorkLeft = info.BuildWork;
-        RequiredSkill = info.BuildSkill;
 
-        transform.localScale = new Vector3(info.Sizes.x, 10, info.Sizes.y);
+        Box.localScale = new Vector3(info.Sizes.x, 10, info.Sizes.y);
+        Box.position += Vector3.up * 5;
+
+        _EnterPoint.position = new Vector3(transform.position.x, 0, transform.position.z + (info.Sizes.y / 2f) + 1);
+
+        if (WorkLeft <= 0)
+        {
+            Destroy(gameObject);
+        }
     }
 
-    public void DayPassed()
+    public override void HourPassed()
     {
-        WorkLeft -= _Effectivity;
+        base.HourPassed();
 
-        if(WorkLeft <= 0)
+        if (Bears.Length < 1)
         {
-            City._Constructor.Build(Construction, new Vector3Int(Mathf.FloorToInt(transform.position.x), 0, Mathf.FloorToInt(transform.position.z)), Mathf.RoundToInt(transform.localEulerAngles.y / 90f), ResourceField);
+            return;
+        }
 
-            City._CityMessenger.SetMessage(new CityMessenger.CityMessage($"Постройка \"{Construction.Name}\" завершена", $"Здание наконец построено, пора укомплектовать строение."), false);
+        WorkLeft -= CityTime._DaySection * _Effectivity;
+
+        if (WorkLeft <= 0)
+        {
+            Vector3Int position = new Vector3Int(Mathf.FloorToInt(transform.position.x), 0, Mathf.FloorToInt(transform.position.z));
+            if (Physics.BoxCast(position + Vector3.up * 50, new Vector3(Construction.Sizes.x / 2, 0.01f, Construction.Sizes.y / 2), Vector3.down, out RaycastHit hit22, transform.rotation, 100, 128))
+            {
+                position.y = Mathf.RoundToInt(hit22.point.y);
+            }
+
+            Facility newFacility = City._Constructor.Build(Construction, position, Mathf.RoundToInt(transform.localEulerAngles.y / 90f), ResourceField);
+
+            City._CityMessenger.AddMessage(new CityMessenger.CityMessage($"Постройка \"{Construction.Name}\" завершена", $"Здание наконец построено, пора укомплектовать персонал."));
+
+            foreach(Bear bear in Bears)
+            {
+                bear._CurrentFacility = newFacility;
+            }
 
             Destroy(gameObject);
         }
+
+        SmtChanged();
     }
 
     public override void RightMouseActions(int index)
@@ -53,59 +105,76 @@ public class ConstructionProject : Facility
     {
         if (answer)
         {
-            City._Storage._Wood += Construction.WoodCost;
-            City._Storage._Metal += Construction.MetalCost;
-            City._Storage._Berezenium += Construction.BerezenuimCost;
+            if(Construction.WoodCost > 0)
+            {
+                City._CityStatistics.AddStatistic(new CityStatistics.Statistic($"отмена проекта {Construction.Name}", (int)(City._Time._WorldTime / 60), Construction.WoodCost, CityStorage.ResourceType.Wood));
+                City._Storage._Wood += Construction.WoodCost;
+            }
+            if (Construction.MetalCost > 0)
+            {
+                City._CityStatistics.AddStatistic(new CityStatistics.Statistic($"отмена проекта {Construction.Name}", (int)(City._Time._WorldTime / 60), Construction.MetalCost, CityStorage.ResourceType.Metal));
+                City._Storage._Metal += Construction.MetalCost;
+            }
+            if (Construction.BerezenuimCost > 0)
+            {
+                City._CityStatistics.AddStatistic(new CityStatistics.Statistic($"отмена проекта {Construction.Name}", (int)(City._Time._WorldTime / 60), Construction.BerezenuimCost, CityStorage.ResourceType.Berezenium));
+                City._Storage._Berezenium += Construction.BerezenuimCost;
+            }
+
             Destroy(gameObject);
             City._Constructor.SpawnDemolishEffect(transform.position);
         }
     }
 
+    protected override void UpdateOcantovkaInfo()
+    {
+        OcantovkaInfo.text = $"/////////" +
+            $"\nОбъект: {Construction.Name}" +
+             $"\nУровень тепла: {(_ColdEndurance - City._Weather._Cold < 0 ? $"<color=red>{_ColdEndurance - City._Weather._Cold}</color>" : _ColdEndurance - City._Weather._Cold)}" +
+            $"\nМедведи: {AssignedBears.Length}/{_MaxBearCount}" +
+            $"\nРаботают: {Bears.Length}/{AssignedBears.Length}" +
+            $"\nЭффективность: {(int)(_Effectivity * 100)}%" +
+            $"\nСовершается работа: {(int)(_Effectivity * 100  * CityTime._DaySection)} %/ч" +
+            $"\nОсталось работы: {(int)(_WorkLeft * 100)}%" +
+            $"\n/////////";
+    }
+
     public override CityFactors.Factor[] GetEffectivityFactors()
     {
-        CityFactors.Factor[] factors = new CityFactors.Factor[2];
+        CityFactors.Factor[] factors = new CityFactors.Factor[1];
 
-        float summSkill = 0;
-        foreach (Bear bear in AssignedBears)
+        float work = 0;
+        foreach (Bear bear in Bears)
         {
-            summSkill += bear._Skill;
+            work += bear._Work;
         }
 
-        factors[0] = new CityFactors.Factor($"Опыт медведей", Mathf.Clamp(summSkill / _RequiredSkill, 0.5f, 2), -1, true);
-        factors[1] = new CityFactors.Factor($"Электрообеспеченность", Mathf.Clamp(City._Energosystem._Effectivity, 0.5f, 1), -1, true);
+        factors[0] = new CityFactors.Factor($"Электрообеспеченность", Mathf.Max(1, Mathf.Clamp(City._Energosystem._Effectivity, 0, 1) * 1.5f), true);
 
-        if (summSkill < _RequiredSkill)
+        if (Bears.Length <= 0)
         {
-            factors = StaticTools.ExpandMassive(factors, new CityFactors.Factor($"Неопытность сотрудников", 0.5f, -1, true));
-        }
-        if (City._Buyiments._EffectivityBoost)
-        {
-            factors = StaticTools.ExpandMassive(factors, new CityFactors.Factor($"Промышленные нановнедрения", 1.25f, -1, true));
+            factors = StaticTools.ExpandMassive(factors, new CityFactors.Factor($"Отсутствуют медведи", 0, true));
         }
 
         return factors;
     }
-    public override float GetPotencialEffectivity()
-    {
-        float summSkill = 0;
-        foreach (Bear bear in AssignedBears)
-        {
-            summSkill += bear.GetSkill(City._Foodstream._Potencial[2]);
-        }
 
-        return Mathf.Clamp(summSkill / _RequiredSkill, 0.5f, 1.5f) * Mathf.Clamp(Mathf.Pow(City._Energosystem._Potencial[2], 2), 0.5f, 1) * (summSkill < _RequiredSkill ? 0.5f : 1) * (City._Buyiments._EffectivityBoost ? 1.25f : 1);
-    }
     public override float _Effectivity
     {
         get
         {
-            float summSkill = 0;
-            foreach (Bear bear in AssignedBears)
+            if(Bears.Length < 1)
             {
-                summSkill += bear._Skill;
+                return 0;
             }
 
-            return Mathf.Clamp(summSkill / _RequiredSkill, 0.5f, 2f) * Mathf.Clamp(City._Energosystem._Effectivity, 0.5f, 1) * (summSkill < _RequiredSkill ? 0.5f : 1) * (City._Buyiments._EffectivityBoost ? 1.25f : 1); 
+            float work = 0;
+            foreach (Bear bear in Bears)
+            {
+                work += bear._Work;
+            }
+
+            return work *  Mathf.Max(1, Mathf.Clamp(City._Energosystem._Effectivity, 0, 1) * 1.5f) ; 
         }
     }
     public override string _SaveInfo 
@@ -114,13 +183,18 @@ public class ConstructionProject : Facility
         set
         {
             base._SaveInfo = value;
-            WorkLeft = StaticTools.StringToFloat(StaticTools.GetParameter(value, "Time"));
+        }
+    }
+    protected override void ApplySaveInfo(Dictionary<string, string> parameters)
+    {
+        base.ApplySaveInfo(parameters);
 
-            string field = StaticTools.GetParameter(value, "Field");
-            if(field != "n")
-            {
-                ResourceField = City._CityGeology._Fields[StaticTools.StringToInt(field)];
-            }
+        WorkLeft = StaticTools.StringToFloat(parameters["Time"]);
+
+        string field = parameters["Field"];
+        if (field != "n")
+        {
+            ResourceField = City._CityGeology._Fields[StaticTools.StringToInt(field)];
         }
     }
 }

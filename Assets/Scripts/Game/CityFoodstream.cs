@@ -1,21 +1,22 @@
+using System.Collections.Generic;
 using UnityEngine;
+using static CitySally;
 
 public class CityFoodstream : MonoBehaviour
 {
     [SerializeField] private CityTime CityTime;
     [SerializeField] private CityDataBase CityData;
 
-    [SerializeField] private float StoredFood;
-    [SerializeField] private float FoodCapacity;
-    [SerializeField] private float Produced;
-    [SerializeField] private float Consumed;
+    [SerializeField] private float Food;
     [SerializeField] private float SaturateCoefficient;
+
+    public event SimpleVoid OnChanges = null;
 
     public string _SaveInfo
     {
         get
         {
-            return $"{StoredFood};{Produced};{Consumed};{SaturateCoefficient}";
+            return $"Food({Food})Saturation({SaturateCoefficient})";
         }
         set
         {
@@ -24,112 +25,75 @@ public class CityFoodstream : MonoBehaviour
                 return;
             }
 
-            string[] values = value.Split(';');
+            Dictionary<string, string> parameters = StaticTools.GetParameters(value);
 
-            StoredFood = StaticTools.StringToFloat(values[0]);
-            Produced = StaticTools.StringToFloat(values[1]);
-            Consumed = StaticTools.StringToFloat(values[2]);
-            SaturateCoefficient = StaticTools.StringToFloat(values[3]);
+            Food = StaticTools.StringToFloat(parameters["Food"]);
+            SaturateCoefficient = StaticTools.StringToFloat(parameters["Saturation"]);
         }
     }
     public float _Saturation => SaturateCoefficient;
-    public float[] _Potencial
-    {
-        get
-        {
-            float[] value = new float[4];
-
-            foreach (Facility facility in CityData._Facilities)
-            {
-                if (facility is FoodProducer)
-                {
-                    value[0] += (facility as FoodProducer)._BaseProduce * (facility as FoodProducer).GetPotencialEffectivity();
-                }
-            }
-
-            value[1] = CityData._Bears.Length * 2;
-
-            if (value[0] + StoredFood < value[1])
-            {
-                value[2] = (value[0] + StoredFood) / value[1];
-                value[3] = value[1] * value[2];
-            }
-            else
-            {
-                value[2] = 1;
-                value[3] = value[1];
-            }
-
-            return value;
-        }
-    }
-    public float _Consumed => Consumed;
-    public float _Produced => Produced;
     public float _StoredFood
     {
         get
         {
-            return StoredFood;
+            return Food;
         }
         set
         {
-            StoredFood = Mathf.Clamp(value, 0 ,_FoodCapacity);
-        }
-    }
-    public float _FoodCapacity => FoodCapacity;
-
-    private void Start()
-    {
-        City._DataBase.OnFacilityChanges += UpdateCapacity;
-        UpdateCapacity();
-    }
-
-    public void UpdateCapacity()
-    {
-        FoodCapacity = 0;
-        foreach (Facility facility in City._DataBase._Facilities)
-        {
-            if (facility is FoodStorage)
-            {
-                FoodCapacity += (facility as FoodStorage)._Capacity;
-            }
+            Food = Mathf.Max(value, 0);
+            OnChanges?.Invoke();
         }
     }
 
-    public void DayPassed()
+    public float CurrentProduce()
     {
-        Produced = 0;
-        foreach(Facility facility in CityData._Facilities)
+        float value = 0;
+        foreach(Facility facility in City._DataBase._Facilities)
         {
             if(facility is FoodProducer)
             {
-                Produced += (facility as FoodProducer)._Produce;
+                value += (facility as FoodProducer)._BaseProduce * facility._Effectivity ;
             }
         }
 
-        Consumed = CityData._Bears.Length * 2;
-
-        if (Produced + StoredFood < Consumed)
+        return value;
+    }
+    public float CurrentConsume()
+    {
+        float consume = 0;
+        foreach(Bear bear in City._DataBase._Bears)
         {
-            SaturateCoefficient = (Produced + StoredFood) / Consumed;
-            Consumed *= SaturateCoefficient;
-
-            StoredFood = 0;
+            consume += bear._Sally == null ? GlobalVariables._BearFoodCost : 0;
         }
-        else
-        {
-            SaturateCoefficient = 1;
 
-            if(Produced - Consumed > 0)
+        return consume;
+    }
+
+    public void HourPassed()
+    {
+        int hour = ((int)City._Time._WorldTime % 1500) / 60;
+        if(hour == 8 || hour == 16 || hour == 24)
+        {
+            if(Food <= 0)
             {
-                if(StoredFood < FoodCapacity)
-                {
-                    StoredFood = Mathf.Clamp(StoredFood + Produced - Consumed, 0, FoodCapacity);
-                }
+                SaturateCoefficient = 0;
+                return;
+            }
+
+            float consume = CurrentConsume();
+
+            if (Food < consume)
+            {
+                SaturateCoefficient = Mathf.Min((Food / consume) * 1, 1);
+               
+                City._CityStatistics.AddStatistic(new CityStatistics.Statistic($"приём пищи", (int)(City._Time._WorldTime / 60), -Food, CityStorage.ResourceType.Honey));
+                Food = 0;
             }
             else
             {
-                StoredFood = Mathf.Max(StoredFood + Produced - Consumed, 0);
+                SaturateCoefficient = 1;
+                City._CityStatistics.AddStatistic(new CityStatistics.Statistic($"приём пищи", (int)(City._Time._WorldTime / 60), -consume, CityStorage.ResourceType.Honey));
+                Food -= consume;
             }
         }
     }

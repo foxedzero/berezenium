@@ -3,14 +3,22 @@ using WindowInterfaces;
 
 public class WindowCreator : MonoBehaviour
 {
+    private static WindowCreator Instance = null;
+
     [SerializeField] private WindowLister Lister;
     [SerializeField] private GameObject[] Prefabs;
+    [SerializeField] private RectTransform Content;
 
-    public T CreateWindow<T> () where T : Window
+    private void Awake()
+    {
+        Instance = this;
+    }
+
+    public static T CreateWindow<T> () where T : Window
     {
         GameObject prefab = null;
        
-        foreach(GameObject prefab1 in Prefabs)
+        foreach(GameObject prefab1 in Instance.Prefabs)
         {
             if(prefab1.GetComponent<Window>().GetType() == typeof(T))
             {
@@ -19,11 +27,11 @@ public class WindowCreator : MonoBehaviour
             }
         }
 
-        T newWindow = Instantiate(prefab, transform).GetComponent<T>();
+        T newWindow = Instantiate(prefab, Instance.Content.transform).GetComponent<T>();
 
         if (newWindow is ISingleOne)
         {
-            foreach (Window window in Lister._Windows)
+            foreach (Window window in Instance.Lister._Windows)
             {
                 if (newWindow.GetType() == window.GetType())
                 {
@@ -37,20 +45,20 @@ public class WindowCreator : MonoBehaviour
             }
         }
 
-        newWindow.SetLister(Lister);
+        newWindow.SetLister(Instance.Lister);
 
         return newWindow;
     }
 
-    public Window CreateWindowWithType(string type)
+    public static Window CreateWindowWithType(string type)
     {
         Window newWindow = null;
 
-        foreach(GameObject window in Prefabs)
+        foreach(GameObject window in Instance.Prefabs)
         {
             if(window.GetComponent<Window>().GetType().ToString() == type)
             {
-                newWindow = Instantiate(window, transform).GetComponent<Window>();
+                newWindow = Instantiate(window, Instance.Content.transform).GetComponent<Window>();
                 break;
             }
         }
@@ -62,7 +70,7 @@ public class WindowCreator : MonoBehaviour
 
         if(newWindow is ISingleOne)
         {
-            foreach(Window window in Lister._Windows)
+            foreach(Window window in Instance.Lister._Windows)
             {
                 if(newWindow.GetType() == window.GetType())
                 {
@@ -76,7 +84,7 @@ public class WindowCreator : MonoBehaviour
             }
         }
 
-        newWindow.SetLister(Lister);
+        newWindow.SetLister(Instance.Lister);
 
         return null;
     }

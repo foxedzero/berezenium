@@ -5,119 +5,65 @@ public class CityMessenger : MonoBehaviour
 {
     [SerializeField] private AudioSource MessageSound;
 
+    [SerializeField] private FirstFaceMessenger FirstFaceMessenger;
+
+    [SerializeField] private GameObject Panel;
     [SerializeField] private IlusionHolders IlusionHolders;
     [SerializeField] private RectTransform Content;
     [SerializeField] private Text MessageList;
-    [SerializeField] private FestMessage FestMessage;
-    [SerializeField] private Musician Musician;
-    [SerializeField] private Musician.MusicOrder MusicOrder;
+    [SerializeField] private Text CurrentMessage;
+    [SerializeField] private Tipper Tipper;
+    [SerializeField] private AudioClip[] MessageSounds;
     private CityMessage[] Messages = new CityMessage[0];
-
-    public string[] _SaveInfo
-    {
-        get
-        {
-            string[] info = new string[0];
-            for(int i = 0; i < Messages.Length; i++)
-            {
-                if (!Messages[i].Red)
-                {
-                    info = StaticTools.ExpandMassive(info, Messages[i]._SaveInfo);
-                }
-            }
-
-            return info;
-        }
-        set
-        {
-            if(value == null)
-            {
-                return;
-            }
-
-            Messages = new CityMessage[value.Length];
-            string[] splitted = null;
-
-            for(int i =0; i < value.Length; i++)
-            {
-                splitted = value[i].Split(";");
-                Messages[i] = new CityMessage(splitted[0], splitted[1]);
-                if (splitted[2] == "1")
-                {
-                    Messages[i].Fest = true;
-                }
-            }
-
-            UpdateInfo();
-        }
-    }
 
     private void Start()
     {
         IlusionHolders.SetInfo(null, Click);
     }
 
-    public void SetMessage(CityMessage message, bool remove)
+    public void ShowPanel()
     {
-        int index = StaticTools.IndexOf(Messages, message);
-
-        if (remove)
+        if(Messages.Length == 0)
         {
-            if(index > -1)
-            {
-                Messages = StaticTools.ReduceMassive(Messages, index);
-            }
+            UserInteract.AskMessage("Нет сообщений", "Вы пока не получили никаких сообщений.");
+            return;
         }
-        else
-        {
-            if(index < 0)
-            {
-                if (message.Red)
-                {
-                    Messages = StaticTools.ExpandMassive(Messages, message, 0);
-                }
-                else
-                {
-                    Messages = StaticTools.ExpandMassive(Messages, message);
+        Panel.SetActive(!Panel.activeSelf);
+    }
 
-                    MessageSound.Play();
-                }
-            }
-        }
+    public void AddMessage(CityMessage message)
+    {
+        Messages = StaticTools.ExpandMassive(Messages, message, 0);
 
-        bool red = false;
-        foreach(CityMessage cityMessage in Messages)
-        {
-            if (cityMessage.Red)
-            {
-                red = true;
-                break;
-            }
-        }
+        FirstFaceMessenger.Show(new string[] { message.Label });
 
-        if (red)
-        {
-            Musician.SetMusic(MusicOrder, false);
-        }
-        else
-        {
-            Musician.SetMusic(MusicOrder, true);
-        }
-
+        MessageSound.clip = MessageSounds[Random.Range(0, MessageSounds.Length)];
+        MessageSound.Play();
         UpdateInfo();
     }
 
     public void UpdateInfo()
     {
+        if (Messages[0].Readed)
+        {
+            CurrentMessage.text = $"<{Messages[0].Label}>";
+        }
+        else
+        {
+            CurrentMessage.text = Messages[0].Label;
+        }
+
         string info = "";
+        int unread = 0;
         for(int i= 0; i < Messages.Length; i++)
         {
-            if (Messages[i].Red)
+            if (Messages[i].Readed)
             {
-                info += $"<color=red>{Messages[i].Label}</color>\n";
+                info += $"<{Messages[i].Label}>\n";
             }
             else
             {
+                unread++;
                 info += $"{Messages[i].Label}\n";
             }
         }
@@ -131,7 +77,9 @@ public class CityMessenger : MonoBehaviour
 
         Content.sizeDelta = new Vector2(0, Messages.Length * 35);
 
-        IlusionHolders._MaxIndex = Messages.Length;
+        IlusionHolders._MaxIndex = Messages.Length - 1;
+
+        Tipper._Info = $"{unread} непрочитанных сообщений\n\nНажмите, чтобы просмотреть все сообщения.";
     }
 
     public void Click(int index)
@@ -141,43 +89,22 @@ public class CityMessenger : MonoBehaviour
             return;
         }
 
-        if (Messages[index].Fest)
-        {
-            FestMessage.SetInfo(Messages[index].Label, Messages[index].Info);
-        }
-        else
-        {
-            UserInteract.AskMessage(Messages[index].Label, Messages[index].Info);
-        }
+        UserInteract.AskMessage(Messages[index].Label, Messages[index].Info);
 
-        if (!Messages[index].Red)
-        {
-            Messages = StaticTools.ReduceMassive(Messages, index);
-
-            UpdateInfo();
-        }
+        Messages[index].Readed = true;
+        UpdateInfo();
     }
 
     public class CityMessage
     {
         public string Label;
         public string Info;
-        public bool Red;
-        public bool Fest;
+        public bool Readed;
 
-        public string _SaveInfo
-        {
-            get
-            {
-                return $"{Label};{Info};{Fest}";
-            }
-        }
-
-        public CityMessage(string label, string info, bool red = false) 
+        public CityMessage(string label, string info) 
         {
             Label = label ;
             Info = info ;
-            Red = red ;
         }
     }
 }

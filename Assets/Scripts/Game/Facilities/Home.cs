@@ -1,56 +1,14 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class Home : Facility
 {
-    [SerializeField] private int SatisfactionBonus;
+    [SerializeField] private float StressDown;
 
-    public override bool _CanBeDisabled => false;
-
-    public override event SimpleVoid OnSmthChange = null;
-
-    public override string _SaveInfo 
-    { 
-        get => base._SaveInfo;
-        set
-        {
-            string bearses = StaticTools.GetParameter(value, "Bears");
-
-            if(bearses.Length > 0)
-            {
-                string[] bears = bearses.Split(";");
-                AssignedBears = new Bear[bears.Length];
-
-                for (int i = 0; i < bears.Length; i++)
-                {
-                    AssignedBears[i] = City._DataBase._Bears[int.Parse(bears[i])];
-                    AssignedBears[i]._Home = this;
-                }
-            }
-        } 
-    }
-    public override int _ColdEndurance => base._ColdEndurance + (City._Research.GetResearchLevel(CityResearch.ResearchType.Household) >= 2 ? 3 : 0);
-    public int _SatisfactionBonus => SatisfactionBonus;
-    public override float _Effectivity => City._Energosystem._Effectivity * (City._Buyiments._EffectivityBoost ? 1.25f : 0);
-
-    public override int _Heater
-    {
-        get => base._Heater;
-        set
-        {
-            base._Heater = value;
-
-            OnSmthChange?.Invoke();
-        }
-    }
-    public override int _Heated
-    {
-        get => base._Heated; set
-        {
-            base._Heated = value;
-
-            OnSmthChange?.Invoke();
-        }
-    }
+    public float _BaseStressDown => StressDown;
+    public float _StressDown => StressDown * _Effectivity;
+    public override int _ColdEndurance => base._ColdEndurance + (City._Research.GetResearchLevel(CityResearch.ResearchType.Household) >= 2 ? 2 : 0);
+    public override float _Effectivity => Mathf.Max(MinimalEnergyCoeffiente, City._Energosystem._Effectivity) ;
 
     protected override void OnDestroy()
     {
@@ -61,48 +19,60 @@ public class Home : Facility
             bear._Home = null;
         }
 
-        if (OnSmthChange != null)
-        {
-            OnSmthChange.Invoke();
-        }
+        SmtChanged();
     }
 
+    protected override void ApplySaveInfo(Dictionary<string, string> parameters)
+    {
+        string bearses = parameters["Bears"];
+
+        _Heater = StaticTools.StringToInt(parameters["Heater"]);
+
+        if (bearses.Length > 0)
+        {
+            string[] bears = bearses.Split(";");
+            AssignedBears = new Bear[bears.Length];
+
+            for (int i = 0; i < bears.Length; i++)
+            {
+                AssignedBears[i] = City._DataBase._Bears[int.Parse(bears[i])];
+                AssignedBears[i]._Home = this;
+            }
+        }
+    }
+    public override void AutoAssign()
+    {
+        foreach (Bear bear in AssignedBears)
+        {
+            bear._Home = null;
+        }
+
+        AssignedBears = new Bear[0];
+        foreach (Bear bear in City._DataBase._Bears)
+        {
+            if (bear._Home == null && bear._Sally == null)
+            {
+                bear._Home = this;
+                AssignedBears = StaticTools.ExpandMassive(AssignedBears, bear);
+
+                if (AssignedBears.Length == _MaxBearCount)
+                {
+                    break;
+                }
+            }
+        }
+
+        SmtChanged();
+    }
     public override void RightMouseActions(int index)
     {
         if(index == 3)
         {
-            foreach (Bear bear in AssignedBears)
-            {
-                bear._Home = null;
-            }
-
-            AssignedBears = new Bear[0];
-            foreach(Bear bear in City._DataBase._Bears)
-            {
-                if(bear._Home == null)
-                {
-                    bear._Home = this;
-                    AssignedBears = StaticTools.ExpandMassive(AssignedBears, bear);
-
-                    if(AssignedBears.Length == _MaxBearCount)
-                    {
-                        break;
-                    }
-                }
-            }
-
-            OnSmthChange?.Invoke();
+            AutoAssign();
         }
         else if(index == 4)
         {
-            foreach (Bear bear in AssignedBears)
-            {
-                bear._Home = null;
-            }
-
-            AssignedBears = new Bear[0];
-
-            OnSmthChange?.Invoke();
+            Unassign();
         }
         else
         {
@@ -110,21 +80,21 @@ public class Home : Facility
         }
     }
 
-    public override float GetPotencialEffectivity()
+    protected override void UpdateOcantovkaInfo()
     {
-        return Mathf.Pow(City._Energosystem._Potencial[2], 2) * (City._Buyiments._EffectivityBoost ? 1.25f : 0);
+        OcantovkaInfo.text = $"/////////" +
+            $"\nОбъект: {ConstructInfo.Name}" +
+             $"\nУровень тепла: {(_ColdEndurance - City._Weather._Cold < 0 ? $"<color=red>{_ColdEndurance - City._Weather._Cold}</color>" : _ColdEndurance - City._Weather._Cold)}" +
+            $"\nМедведи: {AssignedBears.Length}/{_MaxBearCount}" +
+            $"\nОтдыхают: {Bears.Length}/{AssignedBears.Length}" +
+            $"\n/////////";
     }
 
     public override CityFactors.Factor[] GetEffectivityFactors()
     {
         CityFactors.Factor[] factors = new CityFactors.Factor[1];
 
-        factors[0] = new CityFactors.Factor($"Электрообеспеченность", City._Energosystem._Effectivity, -1, true);
-
-        if (City._Buyiments._EffectivityBoost)
-        {
-            factors = StaticTools.ExpandMassive(factors, new CityFactors.Factor($"Промышленные нановнедрения", 1.25f, -1, true));
-        }
+        factors[0] = new CityFactors.Factor($"Электрообеспеченность", Mathf.Max(MinimalEnergyCoeffiente, City._Energosystem._Effectivity), true);
 
         return factors;
     }
@@ -140,16 +110,18 @@ public class Home : Facility
 
                 bear._Home = null;
 
-                if (OnSmthChange != null)
-                {
-                    OnSmthChange.Invoke();
-                }
+                SmtChanged();
 
                 return true;
             }
         }
         else
         {
+            if (bear._Sally != null)
+            {
+                return false;
+            }
+
             if (index < 0 && AssignedBears.Length < _MaxBearCount)
             {
                 AssignedBears = StaticTools.ExpandMassive(AssignedBears, bear);
@@ -161,10 +133,7 @@ public class Home : Facility
 
                 bear._Home = this;
 
-                if (OnSmthChange != null)
-                {
-                    OnSmthChange.Invoke();
-                }
+                SmtChanged();
 
                 return true;
             }
@@ -173,10 +142,15 @@ public class Home : Facility
         return false;
     }
 
-    public override void SetHeater(int index)
+    public override void Unassign()
     {
-        base.SetHeater(index);
-        OnSmthChange?.Invoke();
+        foreach (Bear bear in AssignedBears)
+        {
+            bear._Home = null;
+        }
+
+        AssignedBears = new Bear[0];
+
+        SmtChanged();
     }
-    public override void GiveExperience() { }
 }

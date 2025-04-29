@@ -3,16 +3,16 @@ using System.Collections;
 
 public class ChooseVariant : UserAction
 {
-    [SerializeField] private VariantChosed Delegate;
-    [SerializeField] private RectTransform List;
-    [SerializeField] private GameObject ContentPrefab;
-    [SerializeField] private GameObject VariantPrefab;
-    [SerializeField] private int Current = -1;
-    private Variant[] Variants = new Variant[0];
+    [SerializeField] protected VariantChosed Delegate;
+    [SerializeField] protected RectTransform List;
+    [SerializeField] protected GameObject ContentPrefab;
+    [SerializeField] protected GameObject VariantPrefab;
+    [SerializeField] protected int Current = -1;
+    protected Variant[] Variants = new Variant[0];
 
     public delegate void VariantChosed(int index);
 
-    public void Select(int index)
+    public virtual void Select(int index)
     {
         Delegate.Invoke(index);
 
@@ -49,7 +49,7 @@ public class ChooseVariant : UserAction
 
         if(label.Length > 0)
         {
-            width = Label.preferredWidth + 30;
+            width = Label.preferredWidth + 40;
             yPosition += 40;
         }
         else
@@ -184,63 +184,5 @@ public class ChooseVariant : UserAction
         Variants[index].HighLight(true);
 
         Current = index;
-    }
-
-    private IEnumerator MoveCurrent(bool down)
-    {
-        int times = 0;
-
-        if (down)
-        {
-            if (Current + 1 < Variants.Length)
-            {
-                SetCurrent(Current + 1);
-            }
-
-            while (Input.GetKey(KeyCode.DownArrow))
-            {
-                times++;
-
-                if(times > 11)
-                {
-                    if (Current + 1 < Variants.Length)
-                    {
-                        SetCurrent(Current + 1);
-                    }
-                    else
-                    {
-                        yield break;
-                    }
-                }
-
-                yield return new WaitForSeconds(0.05f);
-            }
-        }
-        else
-        {
-            if (Current - 1 >= 0)
-            {
-                SetCurrent(Current - 1);
-            }
-
-            while (Input.GetKey(KeyCode.UpArrow))
-            {
-                times++;
-
-                if (times > 11)
-                {
-                    if (Current - 1 >= 0)
-                    {
-                        SetCurrent(Current - 1);
-                    }
-                    else
-                    {
-                        yield break;
-                    }
-                }
-
-                yield return new WaitForSeconds(0.05f);
-            }
-        }
     }
 }

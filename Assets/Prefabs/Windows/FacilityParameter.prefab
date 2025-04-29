@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 7860103034640153443}
   - component: {fileID: 5696980613675693320}
   - component: {fileID: 9131152309581273182}
-  - component: {fileID: 1814472773599558017}
   m_Layer: 5
   m_Name: FacilityParameter
   m_TagString: Untagged
@@ -60,7 +59,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 0, b: 0, a: 0.8}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -101,21 +100,3 @@ MonoBehaviour:
     \u0441 \u0438\u043D\u043E\u0439 \u0441\u043F\u0435\u0446\u0438\u0430\u043B\u0438\u0437\u0430\u0446\u0438\u0435\u0439
     \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0432 4 \u0440\u0430\u0437\u0430
     \u0445\u0443\u0436\u0435"
---- !u!114 &1814472773599558017
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4292786290154706084}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e4886656f476a4c4e964bfa7f427565d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  Main: []
-  Interactable: []
-  OnUse: []
-  Informationable:
-  - {fileID: 5696980613675693320}
-  White: []
